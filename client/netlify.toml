@@ -1,0 +1,14 @@
+# This redirects any navigation in React to index.html
+[[redirects]]
+  from = "/*"
+  to = "/index.html"
+  status = 200
+  force = false
+
+# This makes Netlify proxy API requests to your real backend
+# Replace the 'to' URL with your actual backend URL once it is deployed
+[[redirects]]
+  from = "/api/*"
+  to = "https://your-backend-app-name.onrender.com/api/:splat"
+  status = 200
+  force = true

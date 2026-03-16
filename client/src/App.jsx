@@ -1,0 +1,211 @@
+import React, { useState, useEffect } from 'react';
+import { BrowserRouter as Router, Routes, Route, Navigate, Link, useNavigate } from 'react-router-dom';
+import { LayoutDashboard, FolderKanban, PlayCircle, History, Settings, LogOut, Plus, ChevronRight, Activity, CheckCircle2, XCircle, Clock } from 'lucide-react';
+import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, AreaChart, Area } from 'recharts';
+
+import Projects from './pages/Projects';
+import Tests from './pages/Tests';
+import TestBuilder from './pages/TestBuilder';
+// import History from './pages/History';
+// import TestRunner from './pages/TestRunner';
+const Sidebar = ({ user, logout }) => (
+  <aside className="glass" style={{ width: '260px', height: '100vh', padding: '2rem', display: 'flex', flexDirection: 'column', gap: '2rem', position: 'fixed' }}>
+    <div style={{ fontSize: '1.5rem', fontWeight: '800', color: 'var(--primary)', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+      <Activity size={32} /> NoCodeTest
+    </div>
+
+    <nav style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem', flex: 1 }}>
+      <Link to="/" className="btn" style={{ justifyContent: 'flex-start', background: 'transparent', color: 'var(--text-main)' }}>
+        <LayoutDashboard size={20} /> Dashboard
+      </Link>
+      <Link to="/projects" className="btn" style={{ justifyContent: 'flex-start', background: 'transparent', color: 'var(--text-main)' }}>
+        <FolderKanban size={20} /> Projects
+      </Link>
+      {/* <Link to="/runner" className="btn" style={{ justifyContent: 'flex-start', background: 'transparent', color: 'var(--text-main)' }}>
+        <PlayCircle size={20} /> Test Runner
+      </Link>
+      <Link to="/history" className="btn" style={{ justifyContent: 'flex-start', background: 'transparent', color: 'var(--text-main)' }}>
+        <History size={20} /> History
+      </Link> */}
+    </nav>
+
+    <div style={{ marginTop: 'auto', borderTop: '1px solid var(--border)', paddingTop: '1rem' }}>
+      <div style={{ marginBottom: '1rem' }}>
+        <div style={{ fontWeight: '600' }}>{user.username}</div>
+        <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>{user.role}</div>
+      </div>
+      <button onClick={logout} className="btn" style={{ background: 'rgba(239, 68, 68, 0.1)', color: 'var(--error)', width: '100%' }}>
+        <LogOut size={18} /> Logout
+      </button>
+    </div>
+  </aside>
+);
+
+const Navbar = ({ title }) => (
+  <header style={{ marginLeft: '260px', padding: '1.5rem 2rem', display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderBottom: '1px solid var(--border)' }}>
+    <h1 style={{ fontSize: '1.25rem' }}>{title}</h1>
+    <div style={{ display: 'flex', gap: '1rem' }}>
+      <button className="btn btn-primary"><Plus size={18} /> New Project</button>
+    </div>
+  </header>
+);
+
+// Pages
+const LoginPage = ({ setAuth }) => {
+  const [username, setUsername] = useState('');
+  const [password, setPassword] = useState('');
+  const navigate = useNavigate();
+
+  const handleLogin = (e) => {
+    e.preventDefault();
+    // In a real app, this would be an API call
+    if ((username === 'admin' && password === 'admin123') || (username === 'tester' && password === 'tester123')) {
+      const user = { username, role: username === 'admin' ? 'Admin' : 'Tester' };
+      localStorage.setItem('user', JSON.stringify(user));
+      setAuth(user);
+      navigate('/');
+    } else {
+      alert('Invalid credentials');
+    }
+  };
+
+  return (
+    <div style={{ height: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+      <form onSubmit={handleLogin} className="glass" style={{ width: '400px', padding: '3rem', display: 'flex', flexDirection: 'column', gap: '1.5rem' }}>
+        <div style={{ textAlign: 'center' }}>
+          <Activity size={48} color="var(--primary)" style={{ marginBottom: '1rem' }} />
+          <h2>Welcome Back</h2>
+          <p style={{ color: 'var(--text-muted)' }}>Login to manage your tests</p>
+        </div>
+        <input type="text" placeholder="Username" value={username} onChange={e => setUsername(e.target.value)} required />
+        <input type="password" placeholder="Password" value={password} onChange={e => setPassword(e.target.value)} required />
+        <button type="submit" className="btn btn-primary" style={{ justifyContent: 'center' }}>Sign In</button>
+      </form>
+    </div>
+  );
+};
+
+const Dashboard = () => {
+  const [stats, setStats] = useState({
+    totalProjects: 0,
+    totalTests: 0,
+    passedTests: 0,
+    failedTests: 0,
+    apiSuccessRate: 0,
+    lastRun: 'Never'
+  });
+
+  useEffect(() => {
+    fetch('http://localhost:5000/api/stats').then(res => res.json()).then(setStats).catch(console.error);
+  }, []);
+
+  const chartData = [
+    { name: 'Mon', tests: 40 },
+    { name: 'Tue', tests: 30 },
+    { name: 'Wed', tests: 65 },
+    { name: 'Thu', tests: 50 },
+    { name: 'Fri', tests: 80 },
+    { name: 'Sat', tests: 45 },
+    { name: 'Sun', tests: 90 },
+  ];
+
+  return (
+    <div style={{ padding: '2rem' }}>
+      <div className="dashboard-grid">
+        <div className="glass card">
+          <div style={{ color: 'var(--text-muted)', fontSize: '0.875rem' }}>Total Projects</div>
+          <div style={{ fontSize: '2rem', fontWeight: '800' }}>{stats.totalProjects}</div>
+        </div>
+        <div className="glass card">
+          <div style={{ color: 'var(--text-muted)', fontSize: '0.875rem' }}>Success Rate</div>
+          <div style={{ fontSize: '2rem', fontWeight: '800', color: 'var(--success)' }}>{stats.apiSuccessRate}%</div>
+        </div>
+        <div className="glass card">
+          <div style={{ color: 'var(--text-muted)', fontSize: '0.875rem' }}>Tests Passed</div>
+          <div style={{ fontSize: '2rem', fontWeight: '800', color: 'var(--success)' }}>{stats.passedTests}</div>
+        </div>
+        <div className="glass card">
+          <div style={{ color: 'var(--text-muted)', fontSize: '0.875rem' }}>Tests Failed</div>
+          <div style={{ fontSize: '2rem', fontWeight: '800', color: 'var(--error)' }}>{stats.failedTests}</div>
+        </div>
+      </div>
+
+      <div className="glass card" style={{ marginTop: '2rem', height: '300px' }}>
+        <h3 style={{ marginBottom: '1.5rem' }}>Execution Trends</h3>
+        <ResponsiveContainer width="100%" height="80%">
+          <AreaChart data={chartData}>
+            <defs>
+              <linearGradient id="colorTests" x1="0" y1="0" x2="0" y2="1">
+                <stop offset="5%" stopColor="var(--primary)" stopOpacity={0.3} />
+                <stop offset="95%" stopColor="var(--primary)" stopOpacity={0} />
+              </linearGradient>
+            </defs>
+            <XAxis dataKey="name" stroke="var(--text-muted)" />
+            <YAxis stroke="var(--text-muted)" />
+            <Tooltip />
+            <Area type="monotone" dataKey="tests" stroke="var(--primary)" fillOpacity={1} fill="url(#colorTests)" />
+          </AreaChart>
+        </ResponsiveContainer>
+      </div>
+
+      <div className="glass card" style={{ marginTop: '2rem' }}>
+        <h3>Recent Activity</h3>
+        <div style={{ marginTop: '1rem' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '1rem', padding: '1rem 0', borderBottom: '1px solid var(--border)' }}>
+            <div className="badge badge-success"><CheckCircle2 size={14} /></div>
+            <div style={{ flex: 1 }}>
+              <div style={{ fontWeight: '600' }}>API: Login Authentication</div>
+              <div style={{ fontSize: '0.875rem', color: 'var(--text-muted)' }}>Project: E-Commerce Web</div>
+            </div>
+            <div style={{ textAlign: 'right' }}>
+              <div style={{ fontSize: '0.875rem' }}>202ms</div>
+              <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>2 mins ago</div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+};
+
+const App = () => {
+  const [user, setUser] = useState(JSON.parse(localStorage.getItem('user')));
+
+  const logout = () => {
+    localStorage.removeItem('user');
+    setUser(null);
+  };
+
+  if (!user) {
+    return (
+      <Router>
+        <Routes>
+          <Route path="/login" element={<LoginPage setAuth={setUser} />} />
+          <Route path="*" element={<Navigate to="/login" />} />
+        </Routes>
+      </Router>
+    );
+  }
+
+  return (
+    <Router>
+      <div style={{ display: 'flex' }}>
+        <Sidebar user={user} logout={logout} />
+        <main style={{ flex: 1, marginLeft: '260px', minHeight: '100vh' }}>
+          {/* <Navbar title="Dashboard" /> */}
+          <Routes>
+            <Route path="/" element={<Dashboard />} />
+            <Route path="/projects" element={<Projects />} />
+            <Route path="/projects/:projectId/tests" element={<Tests />} />
+            <Route path="/tests/:testId/builder" element={<TestBuilder />} />
+            {/* <Route path="/history" element={<History />} />
+            <Route path="/runner" element={<TestRunner />} /> */}
+            <Route path="*" element={<Navigate to="/" />} />
+          </Routes>
+        </main>
+      </div>
+    </Router>
+  );
+};
+
+export default App;
