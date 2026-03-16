@@ -13,14 +13,14 @@ const TestBuilder = () => {
 
     useEffect(() => {
         // Fetch test steps
-        fetch(`http://localhost:5000/api/tests/${testId}/steps`)
+        fetch(`https://testingbackend-xia0.onrender.com/api/tests/${testId}/steps`)
             .then(res => res.json())
             .then(data => {
                 setSteps(data.map(s => ({ type: s.type, payload: JSON.parse(s.payload) })));
             });
 
         // Fetch test/project details
-        fetch(`http://localhost:5000/api/tests/${testId}`)
+        fetch(`https://testingbackend-xia0.onrender.com/api/tests/${testId}`)
             .then(res => res.json())
             .then(data => {
                 setTest(data);
@@ -65,7 +65,7 @@ const TestBuilder = () => {
     };
 
     const saveTest = () => {
-        fetch(`http://localhost:5000/api/tests/${testId}/steps`, {
+        fetch(`https://testingbackend-xia0.onrender.com/api/tests/${testId}/steps`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ steps })
@@ -73,7 +73,7 @@ const TestBuilder = () => {
     };
 
     const publishTest = () => {
-        fetch(`http://localhost:5000/api/tests/${testId}/status`, {
+        fetch(`https://testingbackend-xia0.onrender.com/api/tests/${testId}/status`, {
             method: 'PATCH',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ status: 'Published' })
@@ -86,7 +86,7 @@ const TestBuilder = () => {
     const runTest = () => {
         setRunning(true);
         setResult(null);
-        fetch(`http://localhost:5000/api/tests/${testId}/run`, { method: 'POST' })
+        fetch(`https://testingbackend-xia0.onrender.com/api/tests/${testId}/run`, { method: 'POST' })
             .then(res => res.json())
             .then(data => {
                 setResult(data);

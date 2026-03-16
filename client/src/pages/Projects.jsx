@@ -9,12 +9,12 @@ const Projects = () => {
     const navigate = useNavigate();
 
     useEffect(() => {
-        fetch('http://localhost:5000/api/projects').then(res => res.json()).then(setProjects);
+        fetch('https://testingbackend-xia0.onrender.com/api/projects').then(res => res.json()).then(setProjects);
     }, []);
 
     const handleSubmit = (e) => {
         e.preventDefault();
-        fetch('http://localhost:5000/api/projects', {
+        fetch('https://testingbackend-xia0.onrender.com/api/projects', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify(newProject)

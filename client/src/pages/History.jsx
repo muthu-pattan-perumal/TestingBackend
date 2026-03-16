@@ -8,7 +8,7 @@ const History = () => {
     const navigate = useNavigate();
 
     useEffect(() => {
-        fetch('http://localhost:5000/api/results')
+        fetch('https://testingbackend-xia0.onrender.com/api/results')
             .then(res => res.json())
             .then(data => {
                 setResults(data);

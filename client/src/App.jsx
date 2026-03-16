@@ -96,7 +96,7 @@ const Dashboard = () => {
   });
 
   useEffect(() => {
-    fetch('http://localhost:5000/api/stats').then(res => res.json()).then(setStats).catch(console.error);
+    fetch('https://testingbackend-xia0.onrender.com/api/stats').then(res => res.json()).then(setStats).catch(console.error);
   }, []);
 
   const chartData = [

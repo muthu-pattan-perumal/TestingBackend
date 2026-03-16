@@ -11,13 +11,13 @@ const Tests = () => {
     const navigate = useNavigate();
 
     useEffect(() => {
-        fetch(`http://localhost:5000/api/projects/${projectId}/tests`).then(res => res.json()).then(setTests);
+        fetch(`https://testingbackend-xia0.onrender.com/api/projects/${projectId}/tests`).then(res => res.json()).then(setTests);
         // Fetch project details too if needed
     }, [projectId]);
 
     const handleCreateTest = (e) => {
         e.preventDefault();
-        fetch('http://localhost:5000/api/tests', {
+        fetch('https://testingbackend-xia0.onrender.com/api/tests', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ ...newTest, projectId: parseInt(projectId) })
