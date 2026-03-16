@@ -9,6 +9,6 @@
 # Replace the 'to' URL with your actual backend URL once it is deployed
 [[redirects]]
   from = "/api/*"
-  to = "https://your-backend-app-name.onrender.com/api/:splat"
+  to = "https://testingbackend-xia0.onrender.com/api/:splat"
   status = 200
   force = true
