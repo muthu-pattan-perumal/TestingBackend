@@ -28,17 +28,27 @@ app.post('/api/login', async (req, res) => {
 
 // Project Routes
 app.get('/api/projects', async (req, res) => {
-    const result = await pool.query('SELECT * FROM projects');
-    res.json(result.rows);
+    try {
+        const result = await pool.query('SELECT * FROM projects');
+        res.json(result.rows);
+    } catch (error) {
+        console.error('Error fetching projects:', error);
+        res.status(500).json({ error: 'Failed to fetch projects', details: error.message });
+    }
 });
 
 app.post('/api/projects', async (req, res) => {
-    const { name, websiteUrl, apiBaseUrl, description } = req.body;
-    const result = await pool.query(
-        'INSERT INTO projects (name, "websiteUrl", "apiBaseUrl", description) VALUES ($1, $2, $3, $4) RETURNING id',
-        [name, websiteUrl, apiBaseUrl, description]
-    );
-    res.json({ id: result.rows[0].id });
+    try {
+        const { name, websiteUrl, apiBaseUrl, description } = req.body;
+        const result = await pool.query(
+            'INSERT INTO projects (name, "websiteUrl", "apiBaseUrl", description) VALUES ($1, $2, $3, $4) RETURNING id',
+            [name, websiteUrl, apiBaseUrl, description]
+        );
+        res.json({ id: result.rows[0].id });
+    } catch (error) {
+        console.error('Error creating project:', error);
+        res.status(500).json({ error: 'Failed to create project', details: error.message });
+    }
 });
 
 // Test Case Routes
