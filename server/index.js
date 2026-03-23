@@ -1,6 +1,10 @@
 const express = require('express');
 const cors = require('cors');
-const { pool, initDb } = require('./db');
+const { getPool, initDb } = require('./db');
+const pool = {
+    query: (...args) => getPool().query(...args),
+    connect: () => getPool().connect()
+};
 const { runApiTest, runUiTest } = require('./runner');
 require('dotenv').config();
 
