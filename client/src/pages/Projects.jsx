@@ -9,7 +9,20 @@ const Projects = () => {
     const navigate = useNavigate();
 
     useEffect(() => {
-        fetch('https://testingbackend-xia0.onrender.com/api/projects').then(res => res.json()).then(setProjects);
+        fetch('https://testingbackend-xia0.onrender.com/api/projects')
+            .then(res => res.json())
+            .then(data => {
+                if (Array.isArray(data)) {
+                    setProjects(data);
+                } else {
+                    console.error('API Error:', data);
+                    setProjects([]); // Fallback to an empty array so map doesn't crash
+                }
+            })
+            .catch(error => {
+                console.error('Fetch Error:', error);
+                setProjects([]);
+            });
     }, []);
 
     const handleSubmit = (e) => {
