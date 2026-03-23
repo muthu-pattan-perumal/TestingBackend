@@ -1,14 +1,25 @@
 const { Pool } = require('pg');
 require('dotenv').config();
 
-const pool = new Pool({
-  connectionString: process.env.DATABASE_URL,
-  ssl: {
-    rejectUnauthorized: false
+let poolInstance;
+
+const getPool = () => {
+  if (!poolInstance) {
+    if (!process.env.DATABASE_URL) {
+      throw new Error('DATABASE_URL environment variable is not set');
+    }
+    poolInstance = new Pool({
+      connectionString: process.env.DATABASE_URL.split('?')[0],
+      ssl: {
+        rejectUnauthorized: false
+      }
+    });
   }
-});
+  return poolInstance;
+};
 
 const initDb = async () => {
+    const pool = getPool();
     const client = await pool.connect();
     try {
         await client.query(`
@@ -70,4 +81,4 @@ const initDb = async () => {
     }
 };
 
-module.exports = { pool, initDb };
+module.exports = { getPool, initDb };
