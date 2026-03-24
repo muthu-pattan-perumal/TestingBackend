@@ -1,6 +1,7 @@
 const { getPool } = require('./db');
 const puppeteer = require('puppeteer');
 const path = require('path');
+const fs = require('fs');
 
 // Crucial for Render: Ensure Puppeteer looks for Chrome in the local project folder
 process.env.PUPPETEER_CACHE_DIR = path.join(__dirname, '.cache', 'puppeteer');
@@ -114,33 +115,52 @@ async function runUiTest(testCaseId) {
 
     try {
         const isCloudEnv = process.env.NODE_ENV === 'production' || process.env.RENDER === 'true';
+        
+        // Multi-Path Detection Strategy
+        const possiblePaths = [
+            process.env.CHROME_PATH,
+            process.env.CHROME_BIN,
+            '/usr/bin/google-chrome',
+            '/usr/bin/chromium-browser',
+            '/opt/render/project/.render/chrome/opt/google/chrome/google-chrome',
+            path.join(__dirname, '.cache', 'puppeteer', 'chrome', 'linux-134.0.6998.35', 'chrome-linux64', 'chrome') // Guess at bundled path
+        ].filter(p => !!p);
 
-        // With full 'puppeteer' package, we let it find its own bundled Chromium
-        // We only use executablePath if CHROME_PATH is explicitly set by user
-        const launchOptions = {
+        let launchOptions = {
             headless: isCloudEnv ? true : false,
             slowMo: 300,
             args: ['--no-sandbox', '--disable-setuid-sandbox', '--window-size=1280,720']
         };
 
-        if (process.env.CHROME_PATH) {
-            launchOptions.executablePath = process.env.CHROME_PATH;
-            logs.push(`🚀 Attempting use of custom Chrome path: ${process.env.CHROME_PATH}`);
-        } else {
-            logs.push(`🚀 Launching bundled Chromium... (Verifying browser dependencies)`);
+        // 1. Try any path that actually exists on disk
+        let foundPath = false;
+        for (const p of possiblePaths) {
+            if (fs.existsSync(p)) {
+                launchOptions.executablePath = p;
+                logs.push(`✅ Found browser at: ${p}`);
+                foundPath = true;
+                break;
+            }
+        }
+
+        if (!foundPath) {
+            logs.push(`⚠️ No pre-installed browser found in standard paths. Attempting default bundled launch...`);
         }
 
         try {
             browser = await puppeteer.launch(launchOptions);
-        } catch (launchError) {
+        } catch (err) {
+            logs.push(`❌ Primary launch failed: ${err.message}`);
             if (launchOptions.executablePath) {
-                logs.push(`⚠️ Custom path failed: ${launchError.message}. Falling back to bundled Chromium...`);
+                logs.push(`🔄 Retrying with default bundled Chromium (ignoring path)...`);
                 delete launchOptions.executablePath;
                 browser = await puppeteer.launch(launchOptions);
             } else {
-                throw launchError;
+                throw err;
             }
         }
+        
+        logs.push(`🚀 Browser launched successfully!`);
         page = await browser.newPage();
         await page.setViewport({ width: 1280, height: 720 });
         await page.setRequestInterception(true);
