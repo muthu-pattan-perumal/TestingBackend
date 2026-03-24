@@ -98,6 +98,7 @@ async function runUiTest(testCaseId) {
     let page = null;
     const networkHistory = [];
     const requestMap = new Map();
+    const stepScreenshots = [];
     let pendingRequests = 0;
     const UI_TIMEOUT = 60000;
 
@@ -212,8 +213,6 @@ async function runUiTest(testCaseId) {
                 return uniqueVisible[i - 1] || null;
             }, labelText, index);
         };
-
-        const stepScreenshots = [];
         const capture = async (stepOrder, label) => {
             const fileName = `step_${testCaseId}_${stepOrder}_${Date.now()}.png`;
             await page.screenshot({ path: `./screenshots/${fileName}` });
