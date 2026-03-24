@@ -1,7 +1,7 @@
 const express = require('express');
 const cors = require('cors');
 const { getPool, initDb, pool } = require('./db');
-const { runApiTest, runUiTest } = require('./runner');
+const { runApiTest, runUiTest, getExecutionStatus } = require('./runner');
 require('dotenv').config();
 
 const app = express();
@@ -127,6 +127,12 @@ app.post('/api/tests/:id/run', async (req, res) => {
         console.error('Execution Error:', error);
         res.status(500).json({ error: 'Internal Server Error during execution', details: error.message });
     }
+});
+
+app.get('/api/tests/:id/run-status', (req, res) => {
+    const status = getExecutionStatus(req.params.id);
+    if (!status) return res.status(102).json({ waiting: true }); // Still waiting or not started
+    res.json(status);
 });
 
 app.get('/api/tests/:id/results', async (req, res) => {

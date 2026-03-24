@@ -83,6 +83,31 @@ const TestBuilder = () => {
         });
     };
 
+    useEffect(() => {
+        let pollTimer;
+        if (running) {
+            pollTimer = setInterval(() => {
+                fetch(`https://testingbackend-xia0.onrender.com/api/tests/${testId}/run-status`)
+                    .then(res => {
+                        if (res.status === 200) return res.json();
+                        return null;
+                    })
+                    .then(data => {
+                        if (data) {
+                            setResult(prev => ({
+                                ...prev,
+                                logs: data.logs,
+                                snapshots: data.snapshots,
+                                isLive: true
+                            }));
+                        }
+                    })
+                    .catch(err => console.error("Poll error:", err));
+            }, 1000);
+        }
+        return () => clearInterval(pollTimer);
+    }, [running, testId]);
+
     const runTest = () => {
         setRunning(true);
         setResult(null);
@@ -90,6 +115,10 @@ const TestBuilder = () => {
             .then(res => res.json())
             .then(data => {
                 setResult(data);
+                setRunning(false);
+            })
+            .catch(err => {
+                console.error("Run error:", err);
                 setRunning(false);
             });
     };
@@ -321,38 +350,53 @@ const TestBuilder = () => {
 
                 {running && (
                     <div style={{ position: 'fixed', top: 0, left: 0, width: '100%', height: '100%', background: 'rgba(0,0,0,0.9)', zIndex: 2000, display: 'flex', alignItems: 'center', justifyContent: 'center', flexDirection: 'column', gap: '2rem' }}>
-                        <div className="glass" style={{ width: '80%', height: '70%', display: 'flex', flexDirection: 'column', overflow: 'hidden', border: '2px solid var(--primary)' }}>
-                            <div style={{ background: 'rgba(255,255,255,0.05)', padding: '0.75rem 1.5rem', display: 'flex', alignItems: 'center', gap: '1rem', borderBottom: '1px solid var(--border)', maxWidth: '65vw' }}>
+                        <div className="glass" style={{ width: '90%', maxWidth: '1200px', height: '80%', display: 'flex', flexDirection: 'column', overflow: 'hidden', border: '2px solid var(--primary)', borderRadius: '16px', boxShadow: '0 0 50px rgba(79, 70, 229, 0.4)' }}>
+                            <div style={{ background: 'rgba(255,255,255,0.05)', padding: '0.75rem 1.5rem', display: 'flex', alignItems: 'center', gap: '1rem', borderBottom: '1px solid var(--border)' }}>
                                 <div style={{ display: 'flex', gap: '0.5rem' }}>
                                     <div style={{ width: '12px', height: '12px', borderRadius: '50%', background: '#ff5f56' }}></div>
                                     <div style={{ width: '12px', height: '12px', borderRadius: '50%', background: '#ffbd2e' }}></div>
                                     <div style={{ width: '12px', height: '12px', borderRadius: '50%', background: '#27c93f' }}></div>
                                 </div>
-                                <div style={{ flex: 1, background: 'rgba(0,0,0,0.3)', padding: '0.25rem 1rem', borderRadius: '6px', fontSize: '0.875rem', color: 'var(--text-muted)' }}>
-                                    Live Automation Monitor - Running Test #{testId}
+                                <div style={{ flex: 1, background: 'rgba(0,0,0,0.3)', padding: '0.25rem 1rem', borderRadius: '6px', fontSize: '0.875rem', color: 'var(--text-muted)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                                    <span>Live Automation Monitor - Running Test #{testId}</span>
+                                    <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                                        <div className="spin" style={{ width: '10px', height: '10px', border: '2px solid var(--primary)', borderTopColor: 'transparent', borderRadius: '50%' }}></div>
+                                        <span style={{ fontSize: '0.75rem' }}>EXECUTING...</span>
+                                    </div>
                                 </div>
                             </div>
-                            <div style={{ flex: 1, display: 'flex', position: 'relative' }}>
-                                <div style={{ flex: 1, background: '#000', display: 'flex', alignItems: 'center', justifyContent: 'center', flexDirection: 'column', gap: '1rem' }}>
-                                    <div className="spin" style={{ width: '40px', height: '40px', border: '4px solid var(--primary)', borderTopColor: 'transparent', borderRadius: '50%' }}></div>
-                                    <p style={{ color: 'var(--primary)', fontWeight: 'bold', fontSize: '1.25rem' }}>Executing Automation Step...</p>
-                                    <p style={{ color: 'var(--text-muted)' }}>Please wait while the system controls the browser</p>
+                            <div style={{ flex: 1, display: 'flex', position: 'relative', overflow: 'hidden' }}>
+                                <div style={{ flex: 1, background: '#000', display: 'flex', alignItems: 'center', justifyContent: 'center', borderRight: '1px solid var(--border)' }}>
+                                    {result?.snapshots && result.snapshots.length > 0 ? (
+                                        <img 
+                                            src={`https://testingbackend-xia0.onrender.com/screenshots/${result.snapshots[result.snapshots.length - 1].fileName}`} 
+                                            alt="Live View" 
+                                            style={{ width: '100%', height: '100%', objectFit: 'contain' }}
+                                        />
+                                    ) : (
+                                        <div style={{ textAlign: 'center', opacity: 0.5 }}>
+                                            <div className="spin" style={{ margin: '0 auto 1rem' }}></div>
+                                            <p>Launching Cloud Chrome...</p>
+                                        </div>
+                                    )}
                                 </div>
-                                <div style={{ width: '300px', background: 'rgba(0,0,0,0.5)', borderLeft: '1px solid var(--border)', padding: '1.5rem', overflowY: 'auto' }}>
-                                    <h4 style={{ marginBottom: '1rem' }}>Execution Logs</h4>
-                                    <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem', fontSize: '0.875rem', fontFamily: 'monospace' }}>
-                                        {result?.logs?.split('\n').map((log, i) => (
-                                            <div key={i} style={{ paddingLeft: '1rem', borderLeft: '2px solid var(--primary)' }}>{log}</div>
-                                        ))}
-                                        <div className="blink" style={{ color: 'var(--primary)' }}>_ [WAITING]</div>
+                                <div style={{ width: '350px', background: 'rgba(0,0,0,0.3)', padding: '1.5rem', overflowY: 'auto' }}>
+                                    <h4 style={{ marginBottom: '1rem' }}>Step-by-Step Logs</h4>
+                                    <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem', fontSize: '0.75rem', fontFamily: 'monospace' }}>
+                                        {result?.logs ? result.logs.split('\n').map((log, i) => (
+                                            <div key={i} style={{ paddingLeft: '1rem', borderLeft: '2px solid var(--primary)', color: 'rgba(255,255,255,0.9)' }}>{log}</div>
+                                        )) : (
+                                            <div className="blink" style={{ color: 'var(--primary)' }}>_ [WAITING FOR RESULTS...]</div>
+                                        )}
+                                        <div ref={el => el?.scrollIntoView({ behavior: 'smooth' })}></div>
                                     </div>
                                 </div>
                             </div>
                         </div>
                         <div style={{ textAlign: 'center' }}>
-                            <p style={{ color: 'var(--primary)', fontWeight: 'bold' }}>A real Google Chrome browser is executing your test.</p>
-                            <p style={{ color: 'var(--text-muted)' }}>You can watch the execution logs in real-time in the popup window.</p>
-                            <button className="btn" style={{ marginTop: '1rem', background: 'var(--error)' }} onClick={() => setRunning(false)}>Stop Test</button>
+                            <p style={{ color: 'var(--primary)', fontWeight: 'bold' }}>A real Google Chrome browser is executing your test in the cloud.</p>
+                            <p style={{ color: 'var(--text-muted)' }}>Snapshots and logs are being streamed live above.</p>
+                            <button className="btn" style={{ marginTop: '1rem', background: 'var(--error)' }} onClick={() => setRunning(false)}>Stop Session</button>
                         </div>
                     </div>
                 )}

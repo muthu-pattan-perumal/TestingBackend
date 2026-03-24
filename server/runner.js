@@ -2,6 +2,12 @@ const { pool } = require('./db');
 const puppeteer = require('puppeteer-core');
 const chromeLauncher = require('chrome-launcher');
 
+const activeExecutions = new Map();
+
+function getExecutionStatus(testCaseId) {
+    return activeExecutions.get(testCaseId) || null;
+}
+
 async function runApiTest(testCaseId) {
     const stepsRes = await pool.query('SELECT * FROM test_steps WHERE "testCaseId" = $1 ORDER BY "stepOrder" ASC', [testCaseId]);
     const steps = stepsRes.rows;
@@ -82,6 +88,7 @@ async function runApiTest(testCaseId) {
 }
 
 async function runUiTest(testCaseId) {
+    activeExecutions.set(testCaseId, { logs: '', snapshots: [] });
     const stepsRes = await pool.query('SELECT * FROM test_steps WHERE "testCaseId" = $1 ORDER BY "stepOrder" ASC', [testCaseId]);
     const steps = stepsRes.rows;
     const startTime = Date.now();
@@ -211,6 +218,8 @@ async function runUiTest(testCaseId) {
             const fileName = `step_${testCaseId}_${stepOrder}_${Date.now()}.png`;
             await page.screenshot({ path: `./screenshots/${fileName}` });
             stepScreenshots.push({ stepOrder, label, fileName });
+            const exec = activeExecutions.get(testCaseId);
+            if (exec) exec.snapshots = [...stepScreenshots];
         };
 
         for (const step of steps) {
@@ -219,6 +228,8 @@ async function runUiTest(testCaseId) {
             const strategy = payload.strategy || 'css';
             const mIndex = payload.matchIndex || 1;
             logs.push(`Step ${step.stepOrder}: ${label} (Index: ${mIndex})`);
+            const exec = activeExecutions.get(testCaseId);
+            if (exec) exec.logs = logs.join('\n');
 
             if (step.type === 'OPEN_URL') {
                 const response = await page.goto(payload.url, { waitUntil: 'networkidle2', timeout: 30000 });
@@ -453,6 +464,7 @@ async function runUiTest(testCaseId) {
         status = 'Failed';
         logs.push(`Error: ${error.message}`);
     } finally {
+        activeExecutions.delete(testCaseId);
         // Phase 18: Ensure all background APIs are captured
         if (page) {
             await waitForNetworkIdle(5000); 
@@ -475,4 +487,4 @@ async function runUiTest(testCaseId) {
     return { status, executionTime, logs: logs.join('\n'), networkHistory: cleanHistory, snapshots: stepScreenshots };
 }
 
-module.exports = { runApiTest, runUiTest };
+module.exports = { runApiTest, runUiTest, getExecutionStatus };
