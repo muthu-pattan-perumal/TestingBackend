@@ -364,6 +364,26 @@ const TestBuilder = () => {
                             <div>Status: <span className={`badge ${result.status === 'Passed' ? 'badge-success' : 'badge-error'}`}>{result.status}</span></div>
                             <div>Duration: {result.executionTime}ms</div>
                         </div>
+
+                        {result.snapshots && result.snapshots.length > 0 && (
+                            <div style={{ marginBottom: '2rem' }}>
+                                <h4 style={{ marginBottom: '1rem' }}>Visual Step Snapshots</h4>
+                                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(200px, 1fr))', gap: '1rem' }}>
+                                    {result.snapshots.map((snap, i) => (
+                                        <div key={i} className="glass" style={{ padding: '0.5rem', borderRadius: '8px' }}>
+                                            <div style={{ fontSize: '0.75rem', marginBottom: '0.5rem', fontWeight: 'bold' }}>Step {snap.stepOrder}: {snap.label}</div>
+                                            <img 
+                                                src={`https://testingbackend-xia0.onrender.com/screenshots/${snap.fileName}`} 
+                                                alt={snap.label} 
+                                                style={{ width: '100%', borderRadius: '4px', cursor: 'pointer' }}
+                                                onClick={() => window.open(`https://testingbackend-xia0.onrender.com/screenshots/${snap.fileName}`, '_blank')}
+                                            />
+                                        </div>
+                                    ))}
+                                </div>
+                            </div>
+                        )}
+
                         <div style={{ background: 'rgba(0,0,0,0.3)', padding: '1rem', borderRadius: '8px', fontSize: '0.875rem', fontFamily: 'monospace', whiteSpace: 'pre-wrap', maxHeight: '400px', overflowY: 'auto' }}>
                             {result.logs}
                         </div>

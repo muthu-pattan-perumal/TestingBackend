@@ -112,11 +112,15 @@ app.post('/api/tests/:id/run', async (req, res) => {
         const test = result.rows[0];
         if (!test) return res.status(404).json({ error: 'Test not found' });
 
+        const stepsRes = await pool.query('SELECT type FROM test_steps WHERE "testCaseId" = $1', [req.params.id]);
+        const uiStepTypes = ['OPEN_URL', 'CLICK', 'INPUT', 'WAIT_FOR', 'INTERCEPT_API', 'SCREENSHOT'];
+        const hasUiSteps = stepsRes.rows.some(s => uiStepTypes.includes(s.type));
+
         let runResult;
-        if (test.type === 'API') {
-            runResult = await runApiTest(test.id);
-        } else {
+        if (test.type === 'UI' || hasUiSteps) {
             runResult = await runUiTest(test.id);
+        } else {
+            runResult = await runApiTest(test.id);
         }
         res.json(runResult);
     } catch (error) {
