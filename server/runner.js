@@ -1,6 +1,5 @@
 const { getPool } = require('./db');
-const puppeteer = require('puppeteer-core');
-const chromeLauncher = require('chrome-launcher');
+const puppeteer = require('puppeteer');
 
 const activeExecutions = new Map();
 
@@ -110,36 +109,24 @@ async function runUiTest(testCaseId) {
     };
 
     try {
-        let chromePath = process.env.CHROME_PATH || process.env.CHROME_BIN;
-        
-        // Manual check for common Render/Linux Chrome paths if still not found
-        if (!chromePath && (process.env.RENDER === 'true' || process.env.NODE_ENV === 'production')) {
-            chromePath = '/usr/bin/google-chrome'; // Standard path for most Chrome buildpacks
-        }
-
-        // Fallback to launcher only if still no path
-        if (!chromePath) {
-            try {
-                chromePath = chromeLauncher.Launcher.getInstallations()[0];
-            } catch (e) {
-                logs.push(`Chrome Launcher fallback failed: ${e.message}`);
-            }
-        }
-
-        if (!chromePath) {
-            logs.push("❌ Error: No compatible Chrome/Chromium found. If on Render, verify the Chrome Buildpack and set CHROME_PATH environment variable.");
-            throw new Error("Compatible Google Chrome not found.");
-        }
-        logs.push(`🚀 Launching Browser using: ${chromePath}`);
-
         const isCloudEnv = process.env.NODE_ENV === 'production' || process.env.RENDER === 'true';
 
-        browser = await puppeteer.launch({
-            executablePath: chromePath,
+        // With full 'puppeteer' package, we let it find its own bundled Chromium
+        // We only use executablePath if CHROME_PATH is explicitly set by user
+        const launchOptions = {
             headless: isCloudEnv ? true : false,
-            slowMo: 300, 
+            slowMo: 300,
             args: ['--no-sandbox', '--disable-setuid-sandbox', '--window-size=1280,720']
-        });
+        };
+
+        if (process.env.CHROME_PATH) {
+            launchOptions.executablePath = process.env.CHROME_PATH;
+            logs.push(`🚀 Using custom Chrome path: ${process.env.CHROME_PATH}`);
+        } else {
+            logs.push(`🚀 Launching bundled Chromium...`);
+        }
+
+        browser = await puppeteer.launch(launchOptions);
         page = await browser.newPage();
         await page.setViewport({ width: 1280, height: 720 });
         await page.setRequestInterception(true);
