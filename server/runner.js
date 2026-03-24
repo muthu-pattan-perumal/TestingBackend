@@ -560,13 +560,14 @@ async function runUiTest(testCaseId) {
         status = 'Failed';
         logs.push(`Error: ${error.message}`);
     } finally {
-        activeExecutions.delete(testCaseId);
-        // Phase 18: Ensure all background APIs are captured
+        // NOTE: Do NOT delete from activeExecutions here — the polling client reads
+        // it via /run-status until we overwrite it with finished:true below.
+        // Ensure all background APIs are captured before closing the browser
         if (page) {
-            await waitForNetworkIdle(5000); 
-            await new Promise(r => setTimeout(r, 500)); // Final stability breath
+            try { await waitForNetworkIdle(5000); } catch (_) {}
+            await new Promise(r => setTimeout(r, 500));
         }
-        if (browser) await browser.close(); 
+        try { if (browser) await browser.close(); } catch (_) {}
     }
 
     const executionTime = Date.now() - startTime;

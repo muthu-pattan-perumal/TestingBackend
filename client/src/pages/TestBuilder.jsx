@@ -85,33 +85,73 @@ const TestBuilder = () => {
     };
 
     useEffect(() => {
-        let pollTimer;
-        if (running) {
-            pollTimer = setInterval(() => {
-                fetch(`${API_BASE_URL}/api/tests/${testId}/run-status`)
-                    .then(res => {
-                        if (res.status === 200) return res.json();
-                        return null;
-                    })
-                    .then(data => {
-                        if (data) {
-                            if (data.finished) {
-                                setRunning(false);
-                                setResult(data);
-                            } else {
-                                setResult(prev => ({
-                                    ...prev,
-                                    logs: data.logs,
-                                    snapshots: data.snapshots,
-                                    isLive: true
-                                }));
-                            }
+        if (!running) return;
+
+        let cancelled = false;
+        let consecutiveErrors = 0;
+        const MAX_ERRORS = 5;       // Stop polling after 5 back-to-back failures
+        const BASE_INTERVAL = 4000; // 4 s base
+        const MAX_INTERVAL = 20000; // cap at 20 s
+
+        const poll = async () => {
+            if (cancelled) return;
+
+            try {
+                const res = await fetch(`${API_BASE_URL}/api/tests/${testId}/run-status`, {
+                    signal: AbortSignal.timeout(15000) // 15 s request timeout
+                });
+
+                if (!res.ok) {
+                    // 520 or other server error — back off but keep trying
+                    consecutiveErrors++;
+                    console.warn(`Poll got ${res.status} (${consecutiveErrors}/${MAX_ERRORS})`);
+                } else {
+                    consecutiveErrors = 0; // reset on success
+                    const data = await res.json();
+                    if (data) {
+                        if (data.finished) {
+                            setRunning(false);
+                            setResult(data);
+                            return; // Stop polling
+                        } else {
+                            setResult(prev => ({
+                                ...prev,
+                                logs: data.logs,
+                                snapshots: data.snapshots,
+                                isLive: true
+                            }));
                         }
-                    })
-                    .catch(err => console.error("Poll error:", err));
-            }, 5000);
-        }
-        return () => clearInterval(pollTimer);
+                    }
+                }
+            } catch (err) {
+                consecutiveErrors++;
+                console.error(`Poll error (${consecutiveErrors}/${MAX_ERRORS}):`, err.message);
+            }
+
+            if (consecutiveErrors >= MAX_ERRORS) {
+                console.error('Too many poll failures — stopping. Check Render logs.');
+                setRunning(false);
+                setResult(prev => ({
+                    ...prev,
+                    logs: (prev?.logs || '') + '\n❌ Lost connection to server after multiple retries. Check Render dashboard.',
+                    finished: true,
+                    status: 'Failed'
+                }));
+                return;
+            }
+
+            // Exponential back-off: 4s, 8s, 12s… capped at 20s
+            const delay = Math.min(BASE_INTERVAL * (consecutiveErrors + 1), MAX_INTERVAL);
+            if (!cancelled) setTimeout(poll, delay);
+        };
+
+        // Start first poll after a short delay to let the server kick off the test
+        const initialTimer = setTimeout(poll, BASE_INTERVAL);
+
+        return () => {
+            cancelled = true;
+            clearTimeout(initialTimer);
+        };
     }, [running, testId]);
 
     const runTest = () => {
