@@ -1,4 +1,4 @@
-const { pool } = require('./db');
+const { getPool } = require('./db');
 const puppeteer = require('puppeteer-core');
 const chromeLauncher = require('chrome-launcher');
 
@@ -9,7 +9,7 @@ function getExecutionStatus(testCaseId) {
 }
 
 async function runApiTest(testCaseId) {
-    const stepsRes = await pool.query('SELECT * FROM test_steps WHERE "testCaseId" = $1 ORDER BY "stepOrder" ASC', [testCaseId]);
+    const stepsRes = await getPool().query('SELECT * FROM test_steps WHERE "testCaseId" = $1 ORDER BY "stepOrder" ASC', [testCaseId]);
     const steps = stepsRes.rows;
     const startTime = Date.now();
     let logs = [];
@@ -79,7 +79,7 @@ async function runApiTest(testCaseId) {
     }
 
     const executionTime = Date.now() - startTime;
-    await pool.query(`
+    await getPool().query(`
         INSERT INTO test_results ("testCaseId", status, "responseData", log, "executionTime")
         VALUES ($1, $2, $3, $4, $5)
     `, [testCaseId, status, JSON.stringify(lastResponse), logs.join('\n'), executionTime]);
@@ -89,7 +89,7 @@ async function runApiTest(testCaseId) {
 
 async function runUiTest(testCaseId) {
     activeExecutions.set(testCaseId, { logs: '', snapshots: [] });
-    const stepsRes = await pool.query('SELECT * FROM test_steps WHERE "testCaseId" = $1 ORDER BY "stepOrder" ASC', [testCaseId]);
+    const stepsRes = await getPool().query('SELECT * FROM test_steps WHERE "testCaseId" = $1 ORDER BY "stepOrder" ASC', [testCaseId]);
     const steps = stepsRes.rows;
     const startTime = Date.now();
     let logs = [];
@@ -479,7 +479,7 @@ async function runUiTest(testCaseId) {
         return rest;
     });
 
-    await pool.query(`
+    await getPool().query(`
         INSERT INTO test_results ("testCaseId", status, log, "executionTime", "responseData")
         VALUES ($1, $2, $3, $4, $5)
     `, [testCaseId, status, logs.join('\n'), executionTime, JSON.stringify({ networkHistory: cleanHistory, snapshots: stepScreenshots })]);

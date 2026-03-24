@@ -1,6 +1,6 @@
 const express = require('express');
 const cors = require('cors');
-const { getPool, initDb, pool } = require('./db');
+const { getPool, initDb } = require('./db');
 const { runApiTest, runUiTest, getExecutionStatus } = require('./runner');
 require('dotenv').config();
 
@@ -17,7 +17,7 @@ initDb().catch(console.error);
 // Auth Routes
 app.post('/api/login', async (req, res) => {
     const { username, password } = req.body;
-    const result = await pool.query('SELECT * FROM users WHERE username = $1 AND password = $2', [username, password]);
+    const result = await getPool().query('SELECT * FROM users WHERE username = $1 AND password = $2', [username, password]);
     const user = result.rows[0];
     if (user) {
         res.json({ id: user.id, username: user.username, role: user.role });
@@ -29,7 +29,7 @@ app.post('/api/login', async (req, res) => {
 // Project Routes
 app.get('/api/projects', async (req, res) => {
     try {
-        const result = await pool.query('SELECT * FROM projects');
+        const result = await getPool().query('SELECT * FROM projects');
         res.json(result.rows);
     } catch (error) {
         console.error('Error fetching projects:', error);
@@ -40,7 +40,7 @@ app.get('/api/projects', async (req, res) => {
 app.post('/api/projects', async (req, res) => {
     try {
         const { name, websiteUrl, apiBaseUrl, description } = req.body;
-        const result = await pool.query(
+        const result = await getPool().query(
             'INSERT INTO projects (name, "websiteUrl", "apiBaseUrl", description) VALUES ($1, $2, $3, $4) RETURNING id',
             [name, websiteUrl, apiBaseUrl, description]
         );
@@ -53,7 +53,7 @@ app.post('/api/projects', async (req, res) => {
 
 // Test Case Routes
 app.get('/api/projects/:id/tests', async (req, res) => {
-    const result = await pool.query(`
+    const result = await getPool().query(`
         SELECT tc.*, 
                (SELECT status FROM test_results WHERE "testCaseId" = tc.id ORDER BY "createdAt" DESC LIMIT 1) as "lastStatus"
         FROM test_cases tc 
@@ -64,7 +64,7 @@ app.get('/api/projects/:id/tests', async (req, res) => {
 
 app.post('/api/tests', async (req, res) => {
     const { projectId, type, name } = req.body;
-    const result = await pool.query(
+    const result = await getPool().query(
         'INSERT INTO test_cases ("projectId", type, name) VALUES ($1, $2, $3) RETURNING id',
         [projectId, type, name]
     );
@@ -72,12 +72,12 @@ app.post('/api/tests', async (req, res) => {
 });
 
 app.get('/api/tests/:id/steps', async (req, res) => {
-    const result = await pool.query('SELECT * FROM test_steps WHERE "testCaseId" = $1 ORDER BY "stepOrder" ASC', [req.params.id]);
+    const result = await getPool().query('SELECT * FROM test_steps WHERE "testCaseId" = $1 ORDER BY "stepOrder" ASC', [req.params.id]);
     res.json(result.rows);
 });
 
 app.get('/api/tests/:id', async (req, res) => {
-    const result = await pool.query(`
+    const result = await getPool().query(`
         SELECT tc.*, p."apiBaseUrl", p."websiteUrl"
         FROM test_cases tc
         JOIN projects p ON tc."projectId" = p.id
@@ -88,16 +88,16 @@ app.get('/api/tests/:id', async (req, res) => {
 
 app.patch('/api/tests/:id/status', async (req, res) => {
     const { status } = req.body;
-    await pool.query('UPDATE test_cases SET status = $1 WHERE id = $2', [status, req.params.id]);
+    await getPool().query('UPDATE test_cases SET status = $1 WHERE id = $2', [status, req.params.id]);
     res.json({ success: true });
 });
 
 app.post('/api/tests/:id/steps', async (req, res) => {
     const { steps } = req.body; // Array of steps
-    await pool.query('DELETE FROM test_steps WHERE "testCaseId" = $1', [req.params.id]);
+    await getPool().query('DELETE FROM test_steps WHERE "testCaseId" = $1', [req.params.id]);
     
     for (let i = 0; i < steps.length; i++) {
-        await pool.query(
+        await getPool().query(
             'INSERT INTO test_steps ("testCaseId", "stepOrder", type, payload) VALUES ($1, $2, $3, $4)',
             [req.params.id, i + 1, steps[i].type, JSON.stringify(steps[i].payload)]
         );
@@ -108,11 +108,11 @@ app.post('/api/tests/:id/steps', async (req, res) => {
 // Execution Routes
 app.post('/api/tests/:id/run', async (req, res) => {
     try {
-        const result = await pool.query('SELECT * FROM test_cases WHERE id = $1', [req.params.id]);
+        const result = await getPool().query('SELECT * FROM test_cases WHERE id = $1', [req.params.id]);
         const test = result.rows[0];
         if (!test) return res.status(404).json({ error: 'Test not found' });
 
-        const stepsRes = await pool.query('SELECT type FROM test_steps WHERE "testCaseId" = $1', [req.params.id]);
+        const stepsRes = await getPool().query('SELECT type FROM test_steps WHERE "testCaseId" = $1', [req.params.id]);
         const uiStepTypes = ['OPEN_URL', 'CLICK', 'INPUT', 'WAIT_FOR', 'INTERCEPT_API', 'SCREENSHOT'];
         const hasUiSteps = stepsRes.rows.some(s => uiStepTypes.includes(s.type));
 
@@ -136,12 +136,12 @@ app.get('/api/tests/:id/run-status', (req, res) => {
 });
 
 app.get('/api/tests/:id/results', async (req, res) => {
-    const result = await pool.query('SELECT * FROM test_results WHERE "testCaseId" = $1 ORDER BY "createdAt" DESC', [req.params.id]);
+    const result = await getPool().query('SELECT * FROM test_results WHERE "testCaseId" = $1 ORDER BY "createdAt" DESC', [req.params.id]);
     res.json(result.rows);
 });
 
 app.get('/api/results', async (req, res) => {
-    const result = await pool.query(`
+    const result = await getPool().query(`
         SELECT tr.*, tc.name as "testName", p.name as "projectName"
         FROM test_results tr
         JOIN test_cases tc ON tr."testCaseId" = tc.id
@@ -154,11 +154,11 @@ app.get('/api/results', async (req, res) => {
 
 // Stats Route
 app.get('/api/stats', async (req, res) => {
-    const projectsCount = await pool.query('SELECT COUNT(*) as count FROM projects');
-    const testsCount = await pool.query('SELECT COUNT(*) as count FROM test_cases');
-    const passedRes = await pool.query("SELECT COUNT(*) as count FROM test_results WHERE status = 'Passed'");
-    const failedRes = await pool.query("SELECT COUNT(*) as count FROM test_results WHERE status = 'Failed'");
-    const lastRunRes = await pool.query('SELECT "createdAt" FROM test_results ORDER BY "createdAt" DESC LIMIT 1');
+    const projectsCount = await getPool().query('SELECT COUNT(*) as count FROM projects');
+    const testsCount = await getPool().query('SELECT COUNT(*) as count FROM test_cases');
+    const passedRes = await getPool().query("SELECT COUNT(*) as count FROM test_results WHERE status = 'Passed'");
+    const failedRes = await getPool().query("SELECT COUNT(*) as count FROM test_results WHERE status = 'Failed'");
+    const lastRunRes = await getPool().query('SELECT "createdAt" FROM test_results ORDER BY "createdAt" DESC LIMIT 1');
     
     const totalProjects = parseInt(projectsCount.rows[0].count);
     const totalTests = parseInt(testsCount.rows[0].count);
