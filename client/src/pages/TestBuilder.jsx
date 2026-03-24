@@ -10,7 +10,7 @@ const TestBuilder = () => {
     const [loading, setLoading] = useState(true);
     const [running, setRunning] = useState(false);
     const [result, setResult] = useState(null);
-
+    console.log(testId);
     useEffect(() => {
         // Fetch test steps
         fetch(`https://testingbackend-xia0.onrender.com/api/tests/${testId}/steps`)
