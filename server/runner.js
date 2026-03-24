@@ -110,18 +110,27 @@ async function runUiTest(testCaseId) {
     };
 
     try {
-        let chromePath = process.env.CHROME_PATH || chromeLauncher.Launcher.getInstallations()[0];
+        let chromePath = process.env.CHROME_PATH || process.env.CHROME_BIN;
         
-        // Manual check for common Render/Heroku Chrome paths if still not found
-        if (!chromePath && process.env.RENDER === 'true') {
-            chromePath = '/opt/render/project/.render/chrome/opt/google/chrome/chrome';
+        // Manual check for common Render/Linux Chrome paths if still not found
+        if (!chromePath && (process.env.RENDER === 'true' || process.env.NODE_ENV === 'production')) {
+            chromePath = '/usr/bin/google-chrome'; // Standard path for most Chrome buildpacks
+        }
+
+        // Fallback to launcher only if still no path
+        if (!chromePath) {
+            try {
+                chromePath = chromeLauncher.Launcher.getInstallations()[0];
+            } catch (e) {
+                logs.push(`Chrome Launcher fallback failed: ${e.message}`);
+            }
         }
 
         if (!chromePath) {
-            logs.push("❌ Error: Google Chrome not found. If running on Render, ensure you have the Chrome Buildpack installed and CHROME_PATH set.");
-            throw new Error("Google Chrome not found on this system.");
+            logs.push("❌ Error: No compatible Chrome/Chromium found. If on Render, verify the Chrome Buildpack and set CHROME_PATH environment variable.");
+            throw new Error("Compatible Google Chrome not found.");
         }
-        logs.push(`Using Chrome at: ${chromePath}`);
+        logs.push(`🚀 Launching Browser using: ${chromePath}`);
 
         const isCloudEnv = process.env.NODE_ENV === 'production' || process.env.RENDER === 'true';
 
