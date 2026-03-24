@@ -5,13 +5,23 @@ const { runApiTest, runUiTest, getExecutionStatus } = require('./runner');
 require('dotenv').config();
 
 const app = express();
-app.use(cors({
+
+// ── CORS ─────────────────────────────────────────────────────────────────────
+const corsOptions = {
     origin: '*',
     methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'OPTIONS'],
-    allowedHeaders: ['Content-Type', 'Authorization', 'Origin', 'Accept']
-}));
+    allowedHeaders: ['Content-Type', 'Authorization', 'Origin', 'Accept', 'X-Requested-With'],
+    optionsSuccessStatus: 200   // Some legacy browsers choke on 204
+};
+app.use(cors(corsOptions));
+// Handle preflight requests for ALL routes explicitly
+app.options('*', cors(corsOptions));
+
 app.use(express.json());
 app.use('/screenshots', express.static('screenshots'));
+
+// ── Health check (keeps Render from returning 520 on sleep wake-up) ──────────
+app.get('/health', (req, res) => res.json({ status: 'ok', ts: Date.now() }));
 
 const PORT = process.env.PORT || 5000;
 
@@ -192,4 +202,12 @@ app.use((err, req, res, next) => {
 
 app.listen(PORT, () => {
     console.log(`Server is live on port ${PORT}`);
+});
+
+// ── Global crash guards (prevents 520 errors on Render) ──────────────────────
+process.on('uncaughtException', (err) => {
+    console.error('Uncaught Exception (server kept alive):', err);
+});
+process.on('unhandledRejection', (reason) => {
+    console.error('Unhandled Rejection (server kept alive):', reason);
 });
