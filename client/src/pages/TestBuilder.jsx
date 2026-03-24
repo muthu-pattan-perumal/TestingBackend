@@ -3,6 +3,7 @@ import { useParams, useNavigate } from 'react-router-dom';
 import { Save, Play, Plus, Trash2, ArrowLeft, Terminal, Layout, MoveUp, MoveDown, Settings, Code, CheckCircle, Clock, Activity } from 'lucide-react';
 
 const TestBuilder = () => {
+    const API_BASE_URL = 'https://testingbackend-xia0.onrender.com';
     const { testId } = useParams();
     const navigate = useNavigate();
     const [test, setTest] = useState(null);
@@ -13,14 +14,14 @@ const TestBuilder = () => {
     console.log(testId);
     useEffect(() => {
         // Fetch test steps
-        fetch(`https://testingbackend-xia0.onrender.com/api/tests/${testId}/steps`)
+        fetch(`${API_BASE_URL}/api/tests/${testId}/steps`)
             .then(res => res.json())
             .then(data => {
                 setSteps(data.map(s => ({ type: s.type, payload: JSON.parse(s.payload) })));
             });
 
         // Fetch test/project details
-        fetch(`https://testingbackend-xia0.onrender.com/api/tests/${testId}`)
+        fetch(`${API_BASE_URL}/api/tests/${testId}`)
             .then(res => res.json())
             .then(data => {
                 setTest(data);
@@ -87,7 +88,7 @@ const TestBuilder = () => {
         let pollTimer;
         if (running) {
             pollTimer = setInterval(() => {
-                fetch(`https://testingbackend-xia0.onrender.com/api/tests/${testId}/run-status`)
+                fetch(`${API_BASE_URL}/api/tests/${testId}/run-status`)
                     .then(res => {
                         if (res.status === 200) return res.json();
                         return null;
@@ -103,7 +104,7 @@ const TestBuilder = () => {
                         }
                     })
                     .catch(err => console.error("Poll error:", err));
-            }, 1000);
+            }, 5000);
         }
         return () => clearInterval(pollTimer);
     }, [running, testId]);
@@ -111,7 +112,7 @@ const TestBuilder = () => {
     const runTest = () => {
         setRunning(true);
         setResult(null);
-        fetch(`https://testingbackend-xia0.onrender.com/api/tests/${testId}/run`, { method: 'POST' })
+        fetch(`${API_BASE_URL}/api/tests/${testId}/run`, { method: 'POST' })
             .then(res => res.json())
             .then(data => {
                 setResult(data);
@@ -370,7 +371,7 @@ const TestBuilder = () => {
                                 <div style={{ flex: 1, background: '#000', display: 'flex', alignItems: 'center', justifyContent: 'center', borderRight: '1px solid var(--border)' }}>
                                     {result?.snapshots && result.snapshots.length > 0 ? (
                                         <img 
-                                            src={`https://testingbackend-xia0.onrender.com/screenshots/${result.snapshots[result.snapshots.length - 1].fileName}`} 
+                                            src={`${API_BASE_URL}/screenshots/${result.snapshots[result.snapshots.length - 1].fileName}`} 
                                             alt="Live View" 
                                             style={{ width: '100%', height: '100%', objectFit: 'contain' }}
                                         />
@@ -422,10 +423,10 @@ const TestBuilder = () => {
                                         <div key={i} className="glass" style={{ padding: '0.5rem', borderRadius: '8px' }}>
                                             <div style={{ fontSize: '0.75rem', marginBottom: '0.5rem', fontWeight: 'bold' }}>Step {snap.stepOrder}: {snap.label}</div>
                                             <img 
-                                                src={`https://testingbackend-xia0.onrender.com/screenshots/${snap.fileName}`} 
+                                                src={`${API_BASE_URL}/screenshots/${snap.fileName}`} 
                                                 alt={snap.label} 
                                                 style={{ width: '100%', borderRadius: '4px', cursor: 'pointer' }}
-                                                onClick={() => window.open(`https://testingbackend-xia0.onrender.com/screenshots/${snap.fileName}`, '_blank')}
+                                                onClick={() => window.open(`${API_BASE_URL}/screenshots/${snap.fileName}`, '_blank')}
                                             />
                                         </div>
                                     ))}

@@ -14,7 +14,13 @@ if (!fs.existsSync('./screenshots')) {
 }
 
 function getExecutionStatus(testCaseId) {
-    return activeExecutions.get(testCaseId) || null;
+    const exec = activeExecutions.get(testCaseId);
+    if (!exec) return null;
+    // Only return the latest snapshot and logs to keep the response size small for Render's stability
+    return {
+        ...exec,
+        snapshots: (exec.snapshots || []).slice(-1)
+    };
 }
 
 async function runApiTest(testCaseId) {
