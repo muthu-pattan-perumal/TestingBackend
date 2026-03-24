@@ -8,6 +8,11 @@ process.env.PUPPETEER_CACHE_DIR = path.join(__dirname, '.cache', 'puppeteer');
 
 const activeExecutions = new Map();
 
+// Ensure screenshots directory exists
+if (!fs.existsSync('./screenshots')) {
+    fs.mkdirSync('./screenshots');
+}
+
 function getExecutionStatus(testCaseId) {
     return activeExecutions.get(testCaseId) || null;
 }
@@ -129,7 +134,16 @@ async function runUiTest(testCaseId) {
         let launchOptions = {
             headless: isCloudEnv ? true : false,
             slowMo: 300,
-            args: ['--no-sandbox', '--disable-setuid-sandbox', '--window-size=1280,720']
+            args: [
+                '--no-sandbox', 
+                '--disable-setuid-sandbox', 
+                '--disable-dev-shm-usage', // Critical for cloud/Docker
+                '--disable-gpu',
+                '--no-first-run',
+                '--no-zygote',
+                '--single-process', // Save RAM
+                '--window-size=1280,720'
+            ]
         };
 
         // 1. Try any path that actually exists on disk
@@ -285,7 +299,6 @@ async function runUiTest(testCaseId) {
                     throw new Error(`Failed to load page: ${payload.url} (Status: ${response.status()})`);
                 }
                 logs.push(`Page loaded: ${payload.url}`);
-                await capture(step.stepOrder, label);
                 await capture(step.stepOrder, label);
             } else if (['GET', 'POST', 'PUT', 'DELETE'].includes(step.type)) {
                 let headers = payload.headers || {};
@@ -498,7 +511,6 @@ async function runUiTest(testCaseId) {
                     if (!elements[mIndex - 1]) throw new Error(`Timeout waiting for selector "${payload.selector}" at index ${mIndex}`);
                 }
                 logs.push(`Successfully waited for element ${mIndex} matching: ${payload.selector}`);
-                await capture(step.stepOrder, label);
                 await capture(step.stepOrder, label);
             } else if (step.type === 'SCREENSHOT') {
                 const screenshotName = `screenshot_${testCaseId}_${Date.now()}.png`;
