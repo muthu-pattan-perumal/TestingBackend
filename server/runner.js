@@ -105,9 +105,11 @@ async function runUiTest(testCaseId) {
         const chromePath = chromeLauncher.Launcher.getInstallations()[0];
         if (!chromePath) throw new Error("Google Chrome not found on this system.");
 
+        const isCloudEnv = process.env.NODE_ENV === 'production' || process.env.RENDER === 'true';
+
         browser = await puppeteer.launch({
             executablePath: chromePath,
-            headless: false,
+            headless: isCloudEnv ? true : false,
             slowMo: 300, 
             args: ['--no-sandbox', '--disable-setuid-sandbox', '--window-size=1280,720']
         });

@@ -350,8 +350,8 @@ const TestBuilder = () => {
                             </div>
                         </div>
                         <div style={{ textAlign: 'center' }}>
-                            <p style={{ color: 'var(--primary)', fontWeight: 'bold' }}>A real Google Chrome window has opened on your desktop to show the execution.</p>
-                            <p style={{ color: 'var(--text-muted)' }}>You can watch the automation happen in real-time in the popup window.</p>
+                            <p style={{ color: 'var(--primary)', fontWeight: 'bold' }}>A real Google Chrome browser is executing your test.</p>
+                            <p style={{ color: 'var(--text-muted)' }}>You can watch the execution logs in real-time in the popup window.</p>
                             <button className="btn" style={{ marginTop: '1rem', background: 'var(--error)' }} onClick={() => setRunning(false)}>Stop Test</button>
                         </div>
                     </div>
