@@ -110,8 +110,18 @@ async function runUiTest(testCaseId) {
     };
 
     try {
-        const chromePath = chromeLauncher.Launcher.getInstallations()[0];
-        if (!chromePath) throw new Error("Google Chrome not found on this system.");
+        let chromePath = process.env.CHROME_PATH || chromeLauncher.Launcher.getInstallations()[0];
+        
+        // Manual check for common Render/Heroku Chrome paths if still not found
+        if (!chromePath && process.env.RENDER === 'true') {
+            chromePath = '/opt/render/project/.render/chrome/opt/google/chrome/chrome';
+        }
+
+        if (!chromePath) {
+            logs.push("❌ Error: Google Chrome not found. If running on Render, ensure you have the Chrome Buildpack installed and CHROME_PATH set.");
+            throw new Error("Google Chrome not found on this system.");
+        }
+        logs.push(`Using Chrome at: ${chromePath}`);
 
         const isCloudEnv = process.env.NODE_ENV === 'production' || process.env.RENDER === 'true';
 
