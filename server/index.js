@@ -122,11 +122,11 @@ app.post('/api/tests/:id/run', async (req, res) => {
 
         let runResult;
         if (test.type === 'UI' || hasUiSteps) {
-            runResult = await runUiTest(test.id);
+            runUiTest(test.id).catch(e => console.error('BG Run UI Error:', e));
         } else {
-            runResult = await runApiTest(test.id);
+            runApiTest(test.id).catch(e => console.error('BG Run API Error:', e));
         }
-        res.json(runResult);
+        res.json({ message: 'Execution started' });
     } catch (error) {
         console.error('Execution Error:', error);
         res.status(500).json({ error: 'Internal Server Error during execution', details: error.message });

@@ -95,12 +95,17 @@ const TestBuilder = () => {
                     })
                     .then(data => {
                         if (data) {
-                            setResult(prev => ({
-                                ...prev,
-                                logs: data.logs,
-                                snapshots: data.snapshots,
-                                isLive: true
-                            }));
+                            if (data.finished) {
+                                setRunning(false);
+                                setResult(data);
+                            } else {
+                                setResult(prev => ({
+                                    ...prev,
+                                    logs: data.logs,
+                                    snapshots: data.snapshots,
+                                    isLive: true
+                                }));
+                            }
                         }
                     })
                     .catch(err => console.error("Poll error:", err));
@@ -113,11 +118,6 @@ const TestBuilder = () => {
         setRunning(true);
         setResult(null);
         fetch(`${API_BASE_URL}/api/tests/${testId}/run`, { method: 'POST' })
-            .then(res => res.json())
-            .then(data => {
-                setResult(data);
-                setRunning(false);
-            })
             .catch(err => {
                 console.error("Run error:", err);
                 setRunning(false);

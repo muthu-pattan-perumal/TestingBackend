@@ -94,12 +94,14 @@ async function runApiTest(testCaseId) {
     }
 
     const executionTime = Date.now() - startTime;
+    const result = { status, executionTime, logs: logs.join('\n') };
     await getPool().query(`
         INSERT INTO test_results ("testCaseId", status, "responseData", log, "executionTime")
         VALUES ($1, $2, $3, $4, $5)
     `, [testCaseId, status, JSON.stringify(lastResponse), logs.join('\n'), executionTime]);
 
-    return { status, executionTime, logs };
+    activeExecutions.set(testCaseId, { ...result, finished: true });
+    return result;
 }
 
 async function runUiTest(testCaseId) {
@@ -561,7 +563,9 @@ async function runUiTest(testCaseId) {
         VALUES ($1, $2, $3, $4, $5)
     `, [testCaseId, status, logs.join('\n'), executionTime, JSON.stringify({ networkHistory: cleanHistory, snapshots: stepScreenshots })]);
 
-    return { status, executionTime, logs: logs.join('\n'), networkHistory: cleanHistory, snapshots: stepScreenshots };
+    const finalResult = { status, executionTime, logs: logs.join('\n'), networkHistory: cleanHistory, snapshots: stepScreenshots, finished: true };
+    activeExecutions.set(testCaseId, finalResult);
+    return finalResult;
 }
 
 module.exports = { runApiTest, runUiTest, getExecutionStatus };
