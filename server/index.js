@@ -5,7 +5,11 @@ const { runApiTest, runUiTest, getExecutionStatus } = require('./runner');
 require('dotenv').config();
 
 const app = express();
-app.use(cors());
+app.use(cors({
+    origin: '*',
+    methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'OPTIONS'],
+    allowedHeaders: ['Content-Type', 'Authorization', 'Origin', 'Accept']
+}));
 app.use(express.json());
 app.use('/screenshots', express.static('screenshots'));
 
@@ -175,6 +179,17 @@ app.get('/api/stats', async (req, res) => {
     });
 });
 
+// Global Error Handler (ensure CORS headers even on error)
+app.use((err, req, res, next) => {
+    console.error('Unhandled Server Error:', err);
+    res.header("Access-Control-Allow-Origin", "*");
+    res.status(500).json({ 
+        error: 'Internal Server Error', 
+        details: err.message,
+        path: req.path
+    });
+});
+
 app.listen(PORT, () => {
-    console.log(`Server running on http://localhost:${PORT}`);
+    console.log(`Server is live on port ${PORT}`);
 });
