@@ -1,10 +1,6 @@
 const express = require('express');
 const cors = require('cors');
-const { getPool, initDb } = require('./db');
-const pool = {
-    query: (...args) => getPool().query(...args),
-    connect: () => getPool().connect()
-};
+const { getPool, initDb, pool } = require('./db');
 const { runApiTest, runUiTest } = require('./runner');
 require('dotenv').config();
 
@@ -111,17 +107,22 @@ app.post('/api/tests/:id/steps', async (req, res) => {
 
 // Execution Routes
 app.post('/api/tests/:id/run', async (req, res) => {
-    const result = await pool.query('SELECT * FROM test_cases WHERE id = $1', [req.params.id]);
-    const test = result.rows[0];
-    if (!test) return res.status(404).json({ error: 'Test not found' });
+    try {
+        const result = await pool.query('SELECT * FROM test_cases WHERE id = $1', [req.params.id]);
+        const test = result.rows[0];
+        if (!test) return res.status(404).json({ error: 'Test not found' });
 
-    let runResult;
-    if (test.type === 'API') {
-        runResult = await runApiTest(test.id);
-    } else {
-        runResult = await runUiTest(test.id);
+        let runResult;
+        if (test.type === 'API') {
+            runResult = await runApiTest(test.id);
+        } else {
+            runResult = await runUiTest(test.id);
+        }
+        res.json(runResult);
+    } catch (error) {
+        console.error('Execution Error:', error);
+        res.status(500).json({ error: 'Internal Server Error during execution', details: error.message });
     }
-    res.json(runResult);
 });
 
 app.get('/api/tests/:id/results', async (req, res) => {

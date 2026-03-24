@@ -81,4 +81,9 @@ const initDb = async () => {
     }
 };
 
-module.exports = { getPool, initDb };
+const pool = {
+    query: (...args) => getPool().query(...args),
+    connect: () => getPool().connect()
+};
+
+module.exports = { getPool, initDb, pool };
