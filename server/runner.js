@@ -140,19 +140,28 @@ async function runUiTest(testCaseId) {
         ].filter(p => !!p);
 
         let launchOptions = {
-            headless: isCloudEnv ? true : false,
-            slowMo: 300,
+            headless: true, // Always headless on cloud
             args: [
-                '--no-sandbox', 
-                '--disable-setuid-sandbox', 
-                '--disable-dev-shm-usage', // Critical for cloud/Docker
+                '--no-sandbox',
+                '--disable-setuid-sandbox',
+                '--disable-dev-shm-usage',  // use /tmp instead of /dev/shm
                 '--disable-gpu',
                 '--no-first-run',
                 '--no-zygote',
-                '--single-process', // Save RAM
-                '--window-size=1280,720'
+                '--disable-extensions',
+                '--disable-background-networking',
+                '--disable-default-apps',
+                '--disable-sync',
+                '--disable-translate',
+                '--hide-scrollbars',
+                '--metrics-recording-only',
+                '--mute-audio',
+                '--safebrowsing-disable-auto-update',
+                '--window-size=1280,720',
+                '--js-flags=--max-old-space-size=256' // Cap JS heap to 256MB
             ]
         };
+        // NOTE: --single-process is intentionally EXCLUDED — it causes Chrome to crash on Linux
 
         // 1. Try any path that actually exists on disk
         let foundPath = false;
@@ -288,6 +297,14 @@ async function runUiTest(testCaseId) {
         };
         const capture = async (stepOrder, label) => {
             if (!page) return;
+            const isCloud = process.env.NODE_ENV === 'production' || process.env.RENDER === 'true';
+            if (isCloud) {
+                // Skip screenshots on cloud — saves RAM/disk, prevents server OOM crashes
+                stepScreenshots.push({ stepOrder, label, fileName: null });
+                const exec = activeExecutions.get(testCaseId);
+                if (exec) exec.snapshots = [...stepScreenshots];
+                return;
+            }
             try {
                 const fileName = `step_${testCaseId}_${stepOrder}_${Date.now()}.png`;
                 await page.screenshot({ path: `./screenshots/${fileName}` });
