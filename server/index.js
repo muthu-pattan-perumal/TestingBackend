@@ -15,7 +15,7 @@ const corsOptions = {
 };
 app.use(cors(corsOptions));
 // Handle preflight requests for ALL routes explicitly
-app.options('*', cors(corsOptions));
+app.options('/{*any}', cors(corsOptions)); // Express 5 wildcard syntax
 
 app.use(express.json());
 app.use('/screenshots', express.static('screenshots'));
