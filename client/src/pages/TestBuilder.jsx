@@ -365,18 +365,33 @@ const TestBuilder = () => {
                                     </div>
                                 </div>
                             </div>
-                            <div style={{ flex: 1, display: 'flex', overflow: 'hidden' }}>
-                                {/* Live Logs - Now full width */}
-                                <div style={{ flex: 1, background: 'rgba(0,0,0,0.2)', display: 'flex', flexDirection: 'column' }}>
-                                    <div style={{ padding: '0.75rem 1.25rem', borderBottom: '1px solid var(--border)', fontWeight: '600', fontSize: '0.875rem', display: 'flex', justifyContent: 'space-between' }}>
-                                        <span>Step-by-Step Execution Monitor</span>
-                                        <span style={{ color: 'var(--primary)', fontSize: '0.75rem' }}>Network Logs Captured in Background</span>
+                            <div style={{ flex: 1, display: 'flex', position: 'relative', overflow: 'hidden' }}>
+                                {/* Left Side: Live Browser Snapshot */}
+                                <div style={{ flex: 1, background: '#000', display: 'flex', alignItems: 'center', justifyContent: 'center', borderRight: '1px solid var(--border)' }}>
+                                    {result?.snapshots && result.snapshots.length > 0 ? (
+                                        <img 
+                                            src={`https://testingbackend-xia0.onrender.com/screenshots/${result.snapshots[result.snapshots.length - 1].fileName}`} 
+                                            alt="Live View" 
+                                            style={{ width: '100%', height: '100%', objectFit: 'contain' }}
+                                        />
+                                    ) : (
+                                        <div style={{ textAlign: 'center', opacity: 0.5 }}>
+                                            <div className="spin" style={{ margin: '0 auto 1rem' }}></div>
+                                            <p>Launching Cloud Chrome...</p>
+                                        </div>
+                                    )}
+                                </div>
+
+                                {/* Right Side: Live Logs */}
+                                <div style={{ width: '350px', background: 'rgba(0,0,0,0.3)', display: 'flex', flexDirection: 'column' }}>
+                                    <div style={{ padding: '0.75rem 1.25rem', borderBottom: '1px solid var(--border)', fontWeight: '600', fontSize: '0.875rem' }}>
+                                        Execution Logs
                                     </div>
-                                    <div style={{ flex: 1, padding: '1.5rem', overflowY: 'auto', fontSize: '0.875rem', fontFamily: 'monospace' }}>
+                                    <div style={{ flex: 1, padding: '1rem', overflowY: 'auto', fontSize: '0.75rem', fontFamily: 'monospace' }}>
                                         {result?.logs ? result.logs.split('\n').map((log, i) => (
-                                            <div key={i} style={{ marginBottom: '0.6rem', borderLeft: '3px solid var(--primary)', paddingLeft: '1rem', color: 'rgba(255,255,255,0.9)' }}>{log}</div>
+                                            <div key={i} style={{ marginBottom: '0.5rem', borderLeft: '2px solid var(--primary)', paddingLeft: '0.75rem', color: 'rgba(255,255,255,0.9)' }}>{log}</div>
                                         )) : (
-                                            <div className="blink" style={{ color: 'var(--primary)' }}>_ [WAITING FOR FIRST STEP...]</div>
+                                            <div className="blink" style={{ color: 'var(--primary)' }}>_ [WAITING...]</div>
                                         )}
                                         <div ref={el => el?.scrollIntoView({ behavior: 'smooth' })}></div>
                                     </div>
@@ -398,6 +413,25 @@ const TestBuilder = () => {
                             <div>Status: <span className={`badge ${result.status === 'Passed' ? 'badge-success' : 'badge-error'}`}>{result.status}</span></div>
                             <div>Duration: {result.executionTime}ms</div>
                         </div>
+
+                        {result.snapshots && result.snapshots.length > 0 && (
+                            <div style={{ marginBottom: '2rem' }}>
+                                <h4 style={{ marginBottom: '1rem' }}>Visual Step Snapshots</h4>
+                                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(200px, 1fr))', gap: '1rem' }}>
+                                    {result.snapshots.map((snap, i) => (
+                                        <div key={i} className="glass" style={{ padding: '0.5rem', borderRadius: '8px' }}>
+                                            <div style={{ fontSize: '0.75rem', marginBottom: '0.5rem', fontWeight: 'bold' }}>Step {snap.stepOrder}: {snap.label}</div>
+                                            <img 
+                                                src={`https://testingbackend-xia0.onrender.com/screenshots/${snap.fileName}`} 
+                                                alt={snap.label} 
+                                                style={{ width: '100%', borderRadius: '4px', cursor: 'pointer' }}
+                                                onClick={() => window.open(`https://testingbackend-xia0.onrender.com/screenshots/${snap.fileName}`, '_blank')}
+                                            />
+                                        </div>
+                                    ))}
+                                </div>
+                            </div>
+                        )}
 
                         <div style={{ background: 'rgba(0,0,0,0.3)', padding: '1.5rem', borderRadius: '12px', fontSize: '0.875rem', fontFamily: 'monospace', whiteSpace: 'pre-wrap', maxHeight: '400px', overflowY: 'auto', border: '1px solid rgba(255,255,255,0.05)' }}>
                             {result.logs}

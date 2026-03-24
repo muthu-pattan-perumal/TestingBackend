@@ -255,9 +255,22 @@ async function runUiTest(testCaseId) {
                 return uniqueVisible[i - 1] || null;
             }, labelText, index);
         };
-            // Screenshots removed as per request
+        const capture = async (stepOrder, label) => {
+            if (!page) return;
+            try {
+                const fileName = `step_${testCaseId}_${stepOrder}_${Date.now()}.png`;
+                await page.screenshot({ path: `./screenshots/${fileName}` });
+                stepScreenshots.push({ stepOrder, label, fileName });
+                const exec = activeExecutions.get(testCaseId);
+                if (exec) exec.snapshots = [...stepScreenshots];
+            } catch (e) {
+                logs.push(`⚠️ Screenshot failed: ${e.message}`);
+            }
+        };
 
         for (const step of steps) {
+            // Stability delay
+            await new Promise(r => setTimeout(r, 1000));
             const payload = JSON.parse(step.payload);
             const label = payload.label || step.type;
             const strategy = payload.strategy || 'css';
@@ -272,6 +285,8 @@ async function runUiTest(testCaseId) {
                     throw new Error(`Failed to load page: ${payload.url} (Status: ${response.status()})`);
                 }
                 logs.push(`Page loaded: ${payload.url}`);
+                await capture(step.stepOrder, label);
+                await capture(step.stepOrder, label);
             } else if (['GET', 'POST', 'PUT', 'DELETE'].includes(step.type)) {
                 let headers = payload.headers || {};
                 if (payload.headersText) {
@@ -402,6 +417,7 @@ async function runUiTest(testCaseId) {
                         throw new Error(`Could not find element at index ${mIndex} for selector: ${payload.selector}`);
                     }
                 }
+                await capture(step.stepOrder, label);
             } else if (step.type === 'INPUT') {
                 if (strategy === 'label') {
                     const elHandle = await getElementByLabel(payload.selector, mIndex);
@@ -451,6 +467,7 @@ async function runUiTest(testCaseId) {
                         throw new Error(`Could not find element at index ${mIndex} for selector: ${payload.selector}`);
                     }
                 }
+                await capture(step.stepOrder, label);
             } else if (step.type === 'WAIT_FOR') {
                 if (strategy === 'label') {
                     const elHandle = await getElementByLabel(payload.selector, mIndex);
@@ -481,6 +498,8 @@ async function runUiTest(testCaseId) {
                     if (!elements[mIndex - 1]) throw new Error(`Timeout waiting for selector "${payload.selector}" at index ${mIndex}`);
                 }
                 logs.push(`Successfully waited for element ${mIndex} matching: ${payload.selector}`);
+                await capture(step.stepOrder, label);
+                await capture(step.stepOrder, label);
             } else if (step.type === 'SCREENSHOT') {
                 const screenshotName = `screenshot_${testCaseId}_${Date.now()}.png`;
                 await page.screenshot({ path: `./screenshots/${screenshotName}` });
