@@ -1,5 +1,9 @@
 const { getPool } = require('./db');
 const puppeteer = require('puppeteer');
+const path = require('path');
+
+// Crucial for Render: Ensure Puppeteer looks for Chrome in the local project folder
+process.env.PUPPETEER_CACHE_DIR = path.join(__dirname, '.cache', 'puppeteer');
 
 const activeExecutions = new Map();
 
