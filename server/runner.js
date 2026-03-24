@@ -236,38 +236,47 @@ async function runUiTest(testCaseId) {
 
         // Helper to find element by label text or attributes, returns specific index
         const getElementByLabel = async (labelText, index = 1) => {
-            return await page.evaluateHandle((text, i) => {
-                const findInLabel = (l) => {
-                    if (l.htmlFor) return document.getElementById(l.htmlFor);
-                    return l.querySelector('input, select, textarea, button');
-                };
+            const startTime = Date.now();
+            while (Date.now() - startTime < UI_TIMEOUT) {
+                const elHandle = await page.evaluateHandle((text, i) => {
+                    const findInLabel = (l) => {
+                        if (l.htmlFor) return document.getElementById(l.htmlFor);
+                        return l.querySelector('input, select, textarea, button');
+                    };
 
-                const labels = Array.from(document.querySelectorAll('label'));
-                const matchingLabels = labels.filter(l => l.innerText.trim().toLowerCase().includes(text.toLowerCase()));
-                
-                let matches = [];
-                matchingLabels.forEach(label => {
-                    const el = findInLabel(label);
-                    if (el) matches.push(el);
-                });
+                    const labels = Array.from(document.querySelectorAll('label'));
+                    const matchingLabels = labels.filter(l => l.innerText.trim().toLowerCase().includes(text.toLowerCase()));
+                    
+                    let matches = [];
+                    matchingLabels.forEach(label => {
+                        const el = findInLabel(label);
+                        if (el) matches.push(el);
+                    });
 
-                const inputs = Array.from(document.querySelectorAll('input, button, select, textarea, a, [role="button"]'));
-                inputs.forEach(input => {
-                    if ((input.getAttribute('aria-label') || '').toLowerCase().includes(text.toLowerCase()) ||
-                        (input.placeholder || '').toLowerCase().includes(text.toLowerCase()) ||
-                        (input.innerText || '').toLowerCase().includes(text.toLowerCase())) {
-                        matches.push(input);
-                    }
-                });
+                    const inputs = Array.from(document.querySelectorAll('input, button, select, textarea, a, [role="button"]'));
+                    inputs.forEach(input => {
+                        if ((input.getAttribute('aria-label') || '').toLowerCase().includes(text.toLowerCase()) ||
+                            (input.placeholder || '').toLowerCase().includes(text.toLowerCase()) ||
+                            (input.innerText || '').toLowerCase().includes(text.toLowerCase())) {
+                            matches.push(input);
+                        }
+                    });
+                    
+                    // Return unique visible elements at requested index
+                    const uniqueVisible = [...new Set(matches)].filter(el => {
+                        const rect = el.getBoundingClientRect();
+                        return rect.width > 0 && rect.height > 0;
+                    });
+                    
+                    return uniqueVisible[i - 1] || null;
+                }, labelText, index);
+
+                const el = elHandle.asElement();
+                if (el) return elHandle;
                 
-                // Return unique visible elements at requested index
-                const uniqueVisible = [...new Set(matches)].filter(el => {
-                    const rect = el.getBoundingClientRect();
-                    return rect.width > 0 && rect.height > 0;
-                });
-                
-                return uniqueVisible[i - 1] || null;
-            }, labelText, index);
+                await new Promise(r => setTimeout(r, 500)); // Poll every 500ms
+            }
+            throw new Error(`Timeout waiting for label/input "${labelText}" at index ${index} within ${UI_TIMEOUT/1000}s`);
         };
         const capture = async (stepOrder, label) => {
             if (!page) return;
