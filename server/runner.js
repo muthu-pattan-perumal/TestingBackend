@@ -391,16 +391,16 @@ async function runUiTest(testCaseId) {
                 try {
                     const base64 = await page.screenshot({
                         type: 'jpeg',
-                        quality: 20, // Low quality for speed
+                        quality: 10, // Ultra-low quality for max speed
                         encoding: 'base64',
-                        clip: { x: 0, y: 0, width: 1280, height: 720 }
+                        clip: { x: 0, y: 0, width: 800, height: 600 } // Smaller dimensions
                     });
                     const current = activeExecutions.get(String(testCaseId)) || {};
                     activeExecutions.set(String(testCaseId), { ...current, liveView: base64 });
                 } catch (e) {
                     // Silently fail to avoid polluting logs
                 }
-            }, 400); // 400ms interval for smooth-enough "video"
+            }, 200); // 200ms interval (5 FPS) for ultra-speed feed
         };
         const stopLiveFeed = () => {
             if (liveFeedTimer) clearInterval(liveFeedTimer);
@@ -413,8 +413,8 @@ async function runUiTest(testCaseId) {
 
         startLiveFeed();
         for (const step of steps) {
-            // Stability delay
-            await new Promise(r => setTimeout(r, 1000));
+            // Stability delay (Ultra-Speed: 100ms)
+            await new Promise(r => setTimeout(r, 100));
             const payload = JSON.parse(step.payload);
             const label = payload.label || step.type;
             const strategy = payload.strategy || 'css';
@@ -644,8 +644,8 @@ async function runUiTest(testCaseId) {
                 pushLogs(`Step ${step.stepOrder}: Skipping screenshot (Disabled by user preference)`);
             }
             
-            // Artificial delay to make it more "visual" in logs
-            await new Promise(r => setTimeout(r, 500));
+            // Artificial delay to make it more "visual" in logs (Ultra-Speed: 100ms)
+            await new Promise(r => setTimeout(r, 100));
         }
     } catch (error) {
         status = 'Failed';

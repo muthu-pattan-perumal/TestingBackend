@@ -91,7 +91,7 @@ const TestBuilder = () => {
         let cancelled = false;
         let consecutiveErrors = 0;
         const MAX_ERRORS = 5;       // Stop polling after 5 back-to-back failures
-        const BASE_INTERVAL = 300; // 300ms for near-real-time live stream
+        const BASE_INTERVAL = 200; // 200ms for ultra-speed near-real-time feed
         const MAX_INTERVAL = 5000; // cap at 5 s
 
         const poll = async () => {
