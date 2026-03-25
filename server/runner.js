@@ -139,8 +139,6 @@ async function runUiTest(testCaseId) {
     };
 
     try {
-        const isCloudEnv = process.env.NODE_ENV === 'production' || process.env.RENDER === 'true';
-        
         // Multi-Path Detection Strategy
         const possiblePaths = [
             process.env.CHROME_PATH,
@@ -151,8 +149,9 @@ async function runUiTest(testCaseId) {
             path.join(__dirname, '.cache', 'puppeteer', 'chrome', 'linux-134.0.6998.35', 'chrome-linux64', 'chrome') // Guess at bundled path
         ].filter(p => !!p);
 
+        const isCloud = process.env.NODE_ENV === 'production' || process.env.RENDER === 'true';
         let launchOptions = {
-            headless: true, // Always headless on cloud
+            headless: isCloud ? true : false, // Render/Cloud must be headless, Local can be headful
             args: [
                 '--no-sandbox',
                 '--disable-setuid-sandbox',
@@ -312,25 +311,8 @@ async function runUiTest(testCaseId) {
             throw new Error(`Timeout waiting for label/input "${labelText}" at index ${index} within ${UI_TIMEOUT/1000}s`);
         };
         const capture = async (stepOrder, label) => {
-            if (!page) return;
-            try {
-                const fileName = `step_${testCaseId}_${stepOrder}_${Date.now()}.png`;
-                const isCloud = process.env.NODE_ENV === 'production' || process.env.RENDER === 'true';
-                
-                // Optimized cloud screenshot: use JPEG 50% quality to save RAM and bytes
-                const screenshotOptions = isCloud 
-                    ? { path: `./screenshots/${fileName}`, type: 'jpeg', quality: 50 }
-                    : { path: `./screenshots/${fileName}` };
-
-                await page.screenshot(screenshotOptions);
-                stepScreenshots.push({ stepOrder, label, fileName });
-                
-                // Update activeExecutions immediately so the UI sees the new snapshot
-                const current = activeExecutions.get(String(testCaseId)) || {};
-                activeExecutions.set(String(testCaseId), { ...current, snapshots: [...stepScreenshots] });
-            } catch (e) {
-                pushLogs(`⚠️ Snapshot failed: ${e.message}`);
-            }
+            // User requested to disable screenshots and open real browser instead
+            return;
         };
 
         for (const step of steps) {
@@ -562,10 +544,7 @@ async function runUiTest(testCaseId) {
                 pushLogs(`Successfully waited for element ${mIndex} matching: ${payload.selector}`);
                 await capture(step.stepOrder, label);
             } else if (step.type === 'SCREENSHOT') {
-                const screenshotName = `screenshot_${testCaseId}_${Date.now()}.png`;
-                await page.screenshot({ path: `./screenshots/${screenshotName}` });
-                pushLogs(`Screenshot saved: ${screenshotName}`);
-                stepScreenshots.push({ stepOrder: step.stepOrder, label, fileName: screenshotName });
+                pushLogs(`Step ${step.stepOrder}: Skipping screenshot (Disabled by user preference)`);
             }
             
             // Artificial delay to make it more "visual" in logs
