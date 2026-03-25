@@ -319,3 +319,42 @@ app.get('/api/tests/:id/steps-data', async (req, res) => {
     const stepsRes = await getPool().query('SELECT * FROM test_steps WHERE "testCaseId" = $1 ORDER BY "stepOrder" ASC', [req.params.id]);
     res.json(stepsRes.rows);
 });
+
+// --- SMART ASSET PROXY (Fixes CORS for /assets/...) ---
+// Catches absolute path requests from the proxied HTML and dynamically fetches them from the target site.
+app.get('/*', async (req, res, next) => {
+    const referer = req.get('referer');
+    if (!referer) return next();
+
+    try {
+        const refererUrl = new URL(referer);
+        // If the request came from our proxy page, we know where it really wanted to go
+        if (refererUrl.pathname === '/api/proxy') {
+            const targetSiteUrl = refererUrl.searchParams.get('url');
+            if (targetSiteUrl) {
+                const targetBase = new URL(targetSiteUrl).origin;
+                const assetUrl = `${targetBase}${req.path}`;
+                
+                const response = await axios.get(assetUrl, { 
+                    responseType: 'arraybuffer',
+                    validateStatus: () => true, // Don't throw on 404
+                    headers: { 'User-Agent': req.get('User-Agent') }
+                });
+                
+                if (response.headers['content-type']) {
+                    res.set('Content-Type', response.headers['content-type']);
+                }
+                return res.send(response.data);
+            }
+        }
+    } catch(err) {
+        console.error('Smart Proxy Error on ' + req.path + ':', err.message);
+    }
+    
+// Fallback to normal 404 handling if not proxied
+    next();
+});
+
+app.listen(PORT, () => {
+    console.log(`Server running on port ${PORT}`);
+});
