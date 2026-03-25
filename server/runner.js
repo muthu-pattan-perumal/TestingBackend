@@ -376,24 +376,8 @@ async function runUiTest(testCaseId) {
             throw new Error(`Timeout waiting for label/input "${labelText}" at index ${index} within ${UI_TIMEOUT/1000}s`);
         };
         const capture = async (stepOrder, label) => {
-            if (!page) return;
-            try {
-                const isCloud = process.env.NODE_ENV === 'production' || process.env.RENDER === 'true';
-                if (!isCloud) return; // Only capture screenshots in the cloud to provide visibility
-
-                const fileName = `step_${testCaseId}_${stepOrder}_${Date.now()}.png`;
-                // Optimized cloud screenshot: use JPEG 50% quality to save RAM and bytes
-                const screenshotOptions = { path: `./screenshots/${fileName}`, type: 'jpeg', quality: 50 };
-
-                await page.screenshot(screenshotOptions);
-                stepScreenshots.push({ stepOrder, label, fileName });
-                
-                // Update activeExecutions immediately so the UI sees the new snapshot
-                const current = activeExecutions.get(String(testCaseId)) || {};
-                activeExecutions.set(String(testCaseId), { ...current, snapshots: [...stepScreenshots] });
-            } catch (e) {
-                pushLogs(`⚠️ Snapshot failed: ${e.message}`);
-            }
+            // Screenshots disabled per user request to maximize speed and clarity
+            return;
         };
 
         for (const step of steps) {

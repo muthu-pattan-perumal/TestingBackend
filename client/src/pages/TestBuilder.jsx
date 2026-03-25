@@ -91,8 +91,8 @@ const TestBuilder = () => {
         let cancelled = false;
         let consecutiveErrors = 0;
         const MAX_ERRORS = 5;       // Stop polling after 5 back-to-back failures
-        const BASE_INTERVAL = 4000; // 4 s base
-        const MAX_INTERVAL = 20000; // cap at 20 s
+        const BASE_INTERVAL = 1000; // 1 s base for high-speed polling
+        const MAX_INTERVAL = 10000; // cap at 10 s
 
         const poll = async () => {
             if (cancelled) return;
@@ -226,6 +226,15 @@ const TestBuilder = () => {
                             <CheckCircle size={18} /> {test?.status === 'Published' ? 'Published' : 'Publish'}
                         </button>
                         <button className="btn" style={{ background: 'rgba(16, 185, 129, 0.1)', color: 'var(--success)' }} onClick={saveTest}><Save size={18} /> Save</button>
+                        {window.location.hostname !== 'localhost' && (
+                            <a 
+                                href="http://localhost:3000" 
+                                className="btn" 
+                                style={{ background: 'var(--success)', color: 'white', textDecoration: 'none', display: 'flex', alignItems: 'center', gap: '0.5rem', fontWeight: 'bold' }}
+                            >
+                                🚀 Open Locally
+                            </a>
+                        )}
                         <button className="btn btn-primary" onClick={runTest} disabled={running}>
                             {running ? <Clock size={18} className="spin" /> : <Play size={18} />}
                             {running ? 'Running...' : 'Run Test'}
