@@ -150,13 +150,14 @@ async function runUiTest(testCaseId) {
             path.join(__dirname, '.cache', 'puppeteer', 'chrome', 'linux-134.0.6998.35', 'chrome-linux64', 'chrome') // Guess at bundled path
         ].filter(p => !!p);
 
-        const isCloud = process.env.NODE_ENV === 'production' || process.env.RENDER === 'true';
-        let launchOptions = {
-            headless: isCloud ? true : false, // Render/Cloud must be headless, Local can be headful
+        const isProduction = process.env.NODE_ENV === 'production' || process.env.RENDER === 'true';
+        browser = await puppeteer.launch({
+            headless: isProduction ? 'new' : false, // Headful locally for visual feedback
             args: [
                 '--no-sandbox',
                 '--disable-setuid-sandbox',
-                '--disable-dev-shm-usage',  // use /tmp instead of /dev/shm
+                '--disable-dev-shm-usage',
+                '--disable-accelerated-2d-canvas',
                 '--disable-gpu',
                 '--no-first-run',
                 '--no-zygote',

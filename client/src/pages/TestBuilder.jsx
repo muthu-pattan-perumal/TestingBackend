@@ -222,20 +222,39 @@ const TestBuilder = () => {
                             </div>
                         </div>
                     </div>
-                    <div style={{ display: 'flex', gap: '1rem' }}>
+                    <div style={{ display: 'flex', gap: '1rem', alignItems: 'center' }}>
                         <button className="btn" style={{ background: 'rgba(59, 130, 246, 0.1)', color: 'var(--primary)' }} onClick={publishTest} disabled={test?.status === 'Published'}>
                             <CheckCircle size={18} /> {test?.status === 'Published' ? 'Published' : 'Publish'}
                         </button>
                         <button className="btn" style={{ background: 'rgba(16, 185, 129, 0.1)', color: 'var(--success)' }} onClick={saveTest}><Save size={18} /> Save</button>
-                        {window.location.hostname !== 'localhost' && (
-                            <a 
-                                href="http://localhost:3000" 
-                                className="btn" 
-                                style={{ background: 'var(--success)', color: 'white', textDecoration: 'none', display: 'flex', alignItems: 'center', gap: '0.5rem', fontWeight: 'bold' }}
-                            >
-                                🚀 Open Locally
-                            </a>
-                        )}
+                        
+                        {/* Runner Switcher (The Bridge) */}
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', background: 'rgba(255,255,255,0.05)', padding: '4px', borderRadius: '8px', border: '1px solid var(--border)' }}>
+                            <div style={{ 
+                                padding: '0.4rem 0.8rem', 
+                                borderRadius: '6px', 
+                                fontSize: '0.75rem', 
+                                cursor: 'pointer',
+                                background: !localStorage.getItem('API_URL_OVERRIDE') ? 'var(--primary)' : 'transparent',
+                                color: !localStorage.getItem('API_URL_OVERRIDE') ? 'white' : 'var(--text-muted)'
+                            }} onClick={() => { localStorage.removeItem('API_URL_OVERRIDE'); window.location.reload(); }}>
+                                Cloud
+                            </div>
+                            <div style={{ 
+                                padding: '0.4rem 0.8rem', 
+                                borderRadius: '6px', 
+                                fontSize: '0.75rem', 
+                                cursor: 'pointer',
+                                background: localStorage.getItem('API_URL_OVERRIDE') ? 'var(--success)' : 'transparent',
+                                color: localStorage.getItem('API_URL_OVERRIDE') ? 'white' : 'var(--text-muted)',
+                                display: 'flex',
+                                alignItems: 'center',
+                                gap: '0.4rem'
+                            }} onClick={() => { localStorage.setItem('API_URL_OVERRIDE', 'http://localhost:5000'); window.location.reload(); }}>
+                                <Settings size={12} /> Local Window
+                            </div>
+                        </div>
+
                         <button className="btn btn-primary" onClick={runTest} disabled={running}>
                             {running ? <Clock size={18} className="spin" /> : <Play size={18} />}
                             {running ? 'Running...' : 'Run Test'}
