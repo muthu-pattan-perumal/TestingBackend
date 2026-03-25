@@ -192,7 +192,7 @@ async function runUiTest(testCaseId) {
         }
 
         try {
-            pushLogs(`🔄 Attempting to launch Chrome (Cloud-safe mode)...`);
+            pushLogs(`🔄 Launching Browser (Headless: ${launchOptions.headless}, Env: ${isCloud ? 'Cloud/Render' : 'Local'})...`);
             browser = await puppeteer.launch(launchOptions);
         } catch (err) {
             pushLogs(`❌ Primary launch failed: ${err.message}`);
@@ -268,6 +268,7 @@ async function runUiTest(testCaseId) {
 
         // Helper to find element by label text or attributes, returns specific index
         const getElementByLabel = async (labelText, index = 1) => {
+            pushLogs(`⏳ Searching for "${labelText}" (Index: ${index})...`);
             const startTime = Date.now();
             while (Date.now() - startTime < UI_TIMEOUT) {
                 const elHandle = await page.evaluateHandle((text, i) => {
@@ -308,6 +309,16 @@ async function runUiTest(testCaseId) {
                 
                 await new Promise(r => setTimeout(r, 500)); // Poll every 500ms
             }
+            
+            // If we reach here, we timed out
+            const pageContext = await page.evaluate(() => {
+                const items = Array.from(document.querySelectorAll('label, input, button, a'))
+                    .map(el => el.innerText?.trim() || el.placeholder?.trim() || el.getAttribute('aria-label'))
+                    .filter(t => !!t && t.length < 50)
+                    .slice(0, 10);
+                return items.join(', ');
+            });
+            pushLogs(`❌ Timeout: Could not find "${labelText}". Visible text found on page: [${pageContext}]...`);
             throw new Error(`Timeout waiting for label/input "${labelText}" at index ${index} within ${UI_TIMEOUT/1000}s`);
         };
         const capture = async (stepOrder, label) => {

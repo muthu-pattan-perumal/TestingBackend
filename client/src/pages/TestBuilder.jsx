@@ -401,7 +401,7 @@ const TestBuilder = () => {
                                     <div style={{ width: '12px', height: '12px', borderRadius: '50%', background: '#27c93f' }}></div>
                                 </div>
                                 <div style={{ flex: 1, background: 'rgba(0,0,0,0.3)', padding: '0.25rem 1rem', borderRadius: '6px', fontSize: '0.875rem', color: 'var(--text-muted)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                                    <span>Live Automation Monitor - Running Test #{testId}</span>
+                                    <span>{window.location.hostname === 'localhost' ? '🏠 Local Automation Monitor' : '☁️ Live Cloud Monitor'} - Running Test #{testId}</span>
                                     <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
                                         <div className="spin" style={{ width: '10px', height: '10px', border: '2px solid var(--primary)', borderTopColor: 'transparent', borderRadius: '50%' }}></div>
                                         <span style={{ fontSize: '0.75rem' }}>EXECUTING...</span>
@@ -420,7 +420,7 @@ const TestBuilder = () => {
                                     ) : (
                                         <div style={{ textAlign: 'center', opacity: 0.5 }}>
                                             <div className="spin" style={{ margin: '0 auto 1rem' }}></div>
-                                            <p>Launching Cloud Chrome...</p>
+                                            <p>{window.location.hostname === 'localhost' ? 'Opening Browser on Desktop...' : 'Launching Cloud Chrome...'}</p>
                                         </div>
                                     )}
                                 </div>
@@ -442,7 +442,11 @@ const TestBuilder = () => {
                             </div>
                         </div>
                         <div style={{ textAlign: 'center' }}>
-                            <p style={{ color: 'var(--primary)', fontWeight: 'bold' }}>A real Google Chrome browser is executing your test in the cloud.</p>
+                            <p style={{ color: 'var(--primary)', fontWeight: 'bold' }}>
+                                {window.location.hostname === 'localhost' 
+                                    ? '🚀 A real Google Chrome browser is opening on your machine!' 
+                                    : 'A real Google Chrome browser is executing your test in the cloud.'}
+                            </p>
                             <p style={{ color: 'var(--text-muted)' }}>Snapshots and logs are being streamed live above.</p>
                             <button className="btn" style={{ marginTop: '1rem', background: 'var(--error)' }} onClick={() => setRunning(false)}>Stop Session</button>
                         </div>
