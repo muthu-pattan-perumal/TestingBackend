@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { Plus, Globe, Link2, FileText, ChevronRight, Play, Edit3, Trash2 } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
+import config from '../config';
 
 const Projects = () => {
     const [projects, setProjects] = useState([]);
@@ -9,7 +10,7 @@ const Projects = () => {
     const navigate = useNavigate();
 
     useEffect(() => {
-        fetch('https://testingbackend-xia0.onrender.com/api/projects')
+        fetch(`${config.API_BASE_URL}/api/projects`)
             .then(res => res.json())
             .then(data => {
                 if (Array.isArray(data)) {
@@ -27,7 +28,7 @@ const Projects = () => {
 
     const handleSubmit = (e) => {
         e.preventDefault();
-        fetch('https://testingbackend-xia0.onrender.com/api/projects', {
+        fetch(`${config.API_BASE_URL}/api/projects`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify(newProject)

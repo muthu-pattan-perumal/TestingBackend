@@ -1,6 +1,6 @@
-import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { History as HistoryIcon, Clock, CheckCircle2, XCircle, ArrowLeft, ExternalLink, Filter } from 'lucide-react';
+import config from '../config';
 
 const History = () => {
     const [results, setResults] = useState([]);
@@ -8,7 +8,7 @@ const History = () => {
     const navigate = useNavigate();
 
     useEffect(() => {
-        fetch('https://testingbackend-xia0.onrender.com/api/results')
+        fetch(`${config.API_BASE_URL}/api/results`)
             .then(res => res.json())
             .then(data => {
                 setResults(data);

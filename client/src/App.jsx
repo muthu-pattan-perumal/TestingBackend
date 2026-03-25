@@ -6,6 +6,7 @@ import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContai
 import Projects from './pages/Projects';
 import Tests from './pages/Tests';
 import TestBuilder from './pages/TestBuilder';
+import config from './config';
 // import History from './pages/History';
 // import TestRunner from './pages/TestRunner';
 const Sidebar = ({ user, logout }) => (
@@ -96,7 +97,7 @@ const Dashboard = () => {
   });
 
   useEffect(() => {
-    fetch('https://testingbackend-xia0.onrender.com/api/stats').then(res => res.json()).then(setStats).catch(console.error);
+    fetch(`${config.API_BASE_URL}/api/stats`).then(res => res.json()).then(setStats).catch(console.error);
   }, []);
 
   const chartData = [

@@ -26,7 +26,7 @@ async function runApiTest(testCaseId) {
     const stepsRes = await getPool().query('SELECT * FROM test_steps WHERE "testCaseId" = $1 ORDER BY "stepOrder" ASC', [testCaseId]);
     const steps = stepsRes.rows;
     const startTime = Date.now();
-    let logs = [];
+    let logs = ['🚀 Initializing...'];
     const pushLogs = (msg) => {
         logs.push(msg);
         const current = activeExecutions.get(String(testCaseId)) || {};
@@ -109,11 +109,11 @@ async function runApiTest(testCaseId) {
 }
 
 async function runUiTest(testCaseId) {
-    activeExecutions.set(String(testCaseId), { logs: '', snapshots: [] });
+    activeExecutions.set(String(testCaseId), { logs: '🚀 Initializing...', snapshots: [] });
     const stepsRes = await getPool().query('SELECT * FROM test_steps WHERE "testCaseId" = $1 ORDER BY "stepOrder" ASC', [testCaseId]);
     const steps = stepsRes.rows;
     const startTime = Date.now();
-    let logs = [];
+    let logs = ['🚀 Initializing...'];
     let status = 'Passed';
 
     // Helper to push logs live to the polling Map

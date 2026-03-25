@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { Plus, Play, Edit3, Trash2, ArrowLeft, Terminal, Layout, FileCode } from 'lucide-react';
+import config from '../config';
 
 const Tests = () => {
     const { projectId } = useParams();
@@ -11,13 +12,13 @@ const Tests = () => {
     const navigate = useNavigate();
 
     useEffect(() => {
-        fetch(`https://testingbackend-xia0.onrender.com/api/projects/${projectId}/tests`).then(res => res.json()).then(setTests);
+        fetch(`${config.API_BASE_URL}/api/projects/${projectId}/tests`).then(res => res.json()).then(setTests);
         // Fetch project details too if needed
     }, [projectId]);
 
     const handleCreateTest = (e) => {
         e.preventDefault();
-        fetch('https://testingbackend-xia0.onrender.com/api/tests', {
+        fetch(`${config.API_BASE_URL}/api/tests`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ ...newTest, projectId: parseInt(projectId) })

@@ -1,9 +1,10 @@
 import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { Save, Play, Plus, Trash2, ArrowLeft, Terminal, Layout, MoveUp, MoveDown, Settings, Code, CheckCircle, Clock, Activity } from 'lucide-react';
+import config from '../config';
 
 const TestBuilder = () => {
-    const API_BASE_URL = 'https://testingbackend-xia0.onrender.com';
+    const API_BASE_URL = config.API_BASE_URL;
     const { testId } = useParams();
     const navigate = useNavigate();
     const [test, setTest] = useState(null);
@@ -66,7 +67,7 @@ const TestBuilder = () => {
     };
 
     const saveTest = () => {
-        fetch(`https://testingbackend-xia0.onrender.com/api/tests/${testId}/steps`, {
+        fetch(`${API_BASE_URL}/api/tests/${testId}/steps`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ steps })
@@ -74,7 +75,7 @@ const TestBuilder = () => {
     };
 
     const publishTest = () => {
-        fetch(`https://testingbackend-xia0.onrender.com/api/tests/${testId}/status`, {
+        fetch(`${API_BASE_URL}/api/tests/${testId}/status`, {
             method: 'PATCH',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ status: 'Published' })
