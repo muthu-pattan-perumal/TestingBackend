@@ -680,4 +680,4 @@ async function runUiTest(testCaseId) {
     return finalResult;
 }
 
-module.exports = { runApiTest, runUiTest, getExecutionStatus };
+module.exports = { runApiTest, runUiTest, getExecutionStatus, activeExecutions };

@@ -157,14 +157,34 @@ const TestBuilder = () => {
         };
     }, [running, testId]);
 
-    const runTest = () => {
+    const handleRun = async () => {
+        if (!test?.websiteUrl) {
+            alert('Please set a website URL for the test first.');
+            return;
+        }
+
         setRunning(true);
         setResult(null);
-        fetch(`${API_BASE_URL}/api/tests/${testId}/run`, { method: 'POST' })
-            .catch(err => {
-                console.error("Run error:", err);
-                setRunning(false);
+
+        try {
+            // Launch the Real Browser Window via Proxy
+            const proxyUrl = `${API_BASE_URL}/api/proxy?url=${encodeURIComponent(test.websiteUrl)}&testId=${testId}`;
+            window.open(proxyUrl, '_blank', 'width=1280,height=720');
+
+            // Still tell the backend to start tracking logs
+            await fetch(`${API_BASE_URL}/api/tests/${testId}/run`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' }
             });
+        } catch (err) {
+            console.error('Run error:', err);
+            setResult({
+                logs: `❌ Execution failed to start: ${err.message}`,
+                finished: true,
+                status: 'Failed'
+            });
+            setRunning(true);
+        }
     };
 
     const actions = [
@@ -228,34 +248,7 @@ const TestBuilder = () => {
                         </button>
                         <button className="btn" style={{ background: 'rgba(16, 185, 129, 0.1)', color: 'var(--success)' }} onClick={saveTest}><Save size={18} /> Save</button>
                         
-                        {/* Runner Switcher (The Bridge) */}
-                        <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', background: 'rgba(255,255,255,0.05)', padding: '4px', borderRadius: '8px', border: '1px solid var(--border)' }}>
-                            <div style={{ 
-                                padding: '0.4rem 0.8rem', 
-                                borderRadius: '6px', 
-                                fontSize: '0.75rem', 
-                                cursor: 'pointer',
-                                background: !localStorage.getItem('API_URL_OVERRIDE') ? 'var(--primary)' : 'transparent',
-                                color: !localStorage.getItem('API_URL_OVERRIDE') ? 'white' : 'var(--text-muted)'
-                            }} onClick={() => { localStorage.removeItem('API_URL_OVERRIDE'); window.location.reload(); }}>
-                                Cloud
-                            </div>
-                            <div style={{ 
-                                padding: '0.4rem 0.8rem', 
-                                borderRadius: '6px', 
-                                fontSize: '0.75rem', 
-                                cursor: 'pointer',
-                                background: localStorage.getItem('API_URL_OVERRIDE') ? 'var(--success)' : 'transparent',
-                                color: localStorage.getItem('API_URL_OVERRIDE') ? 'white' : 'var(--text-muted)',
-                                display: 'flex',
-                                alignItems: 'center',
-                                gap: '0.4rem'
-                            }} onClick={() => { localStorage.setItem('API_URL_OVERRIDE', 'http://localhost:5000'); window.location.reload(); }}>
-                                <Settings size={12} /> Local Window
-                            </div>
-                        </div>
-
-                        <button className="btn btn-primary" onClick={runTest} disabled={running}>
+                        <button className="btn btn-primary" onClick={handleRun} disabled={running}>
                             {running ? <Clock size={18} className="spin" /> : <Play size={18} />}
                             {running ? 'Running...' : 'Run Test'}
                         </button>
@@ -430,42 +423,29 @@ const TestBuilder = () => {
                                     <div style={{ width: '12px', height: '12px', borderRadius: '50%', background: '#27c93f' }}></div>
                                 </div>
                                 <div style={{ flex: 1, background: 'rgba(0,0,0,0.3)', padding: '0.25rem 1rem', borderRadius: '6px', fontSize: '0.875rem', color: 'var(--text-muted)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                                    <span>{window.location.hostname === 'localhost' ? '🏠 Local Automation Monitor' : '☁️ Live Cloud Monitor'} - Running Test #{testId}</span>
+                                    <span>
+                                        {localStorage.getItem('API_URL_OVERRIDE') ? '🏠 Home Desktop Monitor' : (window.location.hostname === 'localhost' ? '🏠 Local Automation Monitor' : '☁️ Live Cloud Monitor')} 
+                                        - Running Test #{testId}
+                                    </span>
                                     <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
                                         <div className="spin" style={{ width: '10px', height: '10px', border: '2px solid var(--primary)', borderTopColor: 'transparent', borderRadius: '50%' }}></div>
                                         <span style={{ fontSize: '0.75rem' }}>EXECUTING...</span>
                                     </div>
                                 </div>
                             </div>
-                            <div style={{ flex: 1, display: 'flex', position: 'relative', overflow: 'hidden' }}>
-                                {/* Left Side: Live Browser Snapshot */}
-                                <div style={{ flex: 1, background: '#000', display: 'flex', alignItems: 'center', justifyContent: 'center', borderRight: '1px solid var(--border)' }}>
-                                    {result?.liveView ? (
-                                        <img 
-                                            src={`data:image/jpeg;base64,${result.liveView}`} 
-                                            alt="Live Browser Feed" 
-                                            style={{ width: '100%', height: '100%', objectFit: 'contain' }} 
-                                        />
-                                    ) : result?.snapshots && result.snapshots.length > 0 ? (
-                                        <img 
-                                            src={`${API_BASE_URL}/screenshots/${result.snapshots[result.snapshots.length - 1].fileName}`} 
-                                            alt="Last Snapshot" 
-                                            style={{ width: '100%', height: '100%', objectFit: 'contain' }}
-                                        />
-                                    ) : (
-                                        <div style={{ textAlign: 'center', opacity: 0.5 }}>
-                                            <div className="spin" style={{ margin: '0 auto 1rem' }}></div>
-                                            <p>{window.location.hostname === 'localhost' ? 'Opening Browser on Desktop...' : 'Launching Cloud Chrome...'}</p>
+                            <div style={{ flex: 1, display: 'flex', position: 'relative', overflow: 'hidden', background: '#000' }}>
+                                {/* Execution Logs */}
+                                <div style={{ flex: 1, padding: '1.5rem', overflowY: 'auto' }}>
+                                    <div style={{ marginBottom: '1.5rem', padding: '1rem', background: 'rgba(59, 130, 246, 0.1)', border: '1px solid rgba(59, 130, 246, 0.2)', borderRadius: '8px', display: 'flex', alignItems: 'center', gap: '1rem' }}>
+                                        <div className="spin" style={{ width: '24px', height: '24px', border: '3px solid var(--primary)', borderTopColor: 'transparent', borderRadius: '50%' }}></div>
+                                        <div>
+                                            <div style={{ fontWeight: 'bold', color: 'var(--primary)' }}>Real Browser Window Active!</div>
+                                            <div style={{ fontSize: '0.8rem', opacity: 0.7 }}>Automation is running in the new tab. Don't close it until finished.</div>
                                         </div>
-                                    )}
-                                </div>
-
-                                {/* Right Side: Live Logs */}
-                                <div style={{ width: '350px', background: 'rgba(0,0,0,0.3)', display: 'flex', flexDirection: 'column' }}>
-                                    <div style={{ padding: '0.75rem 1.25rem', borderBottom: '1px solid var(--border)', fontWeight: '600', fontSize: '0.875rem' }}>
-                                        Execution Logs
                                     </div>
-                                    <div style={{ flex: 1, padding: '1rem', overflowY: 'auto', fontSize: '0.75rem', fontFamily: 'monospace' }}>
+
+                                    <h3 style={{ fontSize: '0.875rem', textTransform: 'uppercase', letterSpacing: '0.1em', color: 'var(--text-muted)', marginBottom: '1rem' }}>Execution Logs</h3>
+                                    <div style={{ fontFamily: 'monospace', fontSize: '0.875rem', lineHeight: '1.5', whiteSpace: 'pre-wrap' }}>
                                         {result?.logs ? result.logs.split('\n').map((log, i) => (
                                             <div key={i} style={{ marginBottom: '0.5rem', borderLeft: '2px solid var(--primary)', paddingLeft: '0.75rem', color: 'rgba(255,255,255,0.9)' }}>{log}</div>
                                         )) : (
@@ -478,11 +458,9 @@ const TestBuilder = () => {
                         </div>
                         <div style={{ textAlign: 'center' }}>
                             <p style={{ color: 'var(--primary)', fontWeight: 'bold' }}>
-                                {window.location.hostname === 'localhost' 
-                                    ? '🚀 A real Google Chrome browser is opening on your machine!' 
-                                    : 'A real Google Chrome browser is executing your test in the cloud.'}
+                                🚀 A real Google Chrome browser has been opened for testing!
                             </p>
-                            <p style={{ color: 'var(--text-muted)' }}>Snapshots and logs are being streamed live above.</p>
+                            <p style={{ color: 'var(--text-muted)' }}>Watch the native executions securely from Pattanhub.</p>
                             <button className="btn" style={{ marginTop: '1rem', background: 'var(--error)' }} onClick={() => setRunning(false)}>Stop Session</button>
                         </div>
                     </div>

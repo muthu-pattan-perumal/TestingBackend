@@ -1,7 +1,9 @@
 const express = require('express');
 const cors = require('cors');
+const fs = require('fs');
+const axios = require('axios'); // For proxying
 const { getPool, initDb } = require('./db');
-const { runApiTest, runUiTest, getExecutionStatus } = require('./runner');
+const { runApiTest, runUiTest, getExecutionStatus, activeExecutions } = require('./runner');
 require('dotenv').config();
 
 const app = express();
@@ -221,4 +223,95 @@ process.on('uncaughtException', (err) => {
 });
 process.on('unhandledRejection', (reason) => {
     console.error('Unhandled Rejection (server kept alive):', reason);
+});
+// --- PROXY RUNNER SYSTEM ---
+app.get('/api/proxy', async (req, res) => {
+    const { url, testId } = req.query;
+    if (!url) return res.status(400).send('URL is required');
+
+    try {
+        const response = await axios.get(url, {
+            headers: { 'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36' },
+            timeout: 10000
+        });
+
+        let html = response.data;
+        const baseUrl = new URL(url).origin;
+
+        // 1. Inject the Automation Engine
+        const scriptInjection = `
+            <script>
+                window.__TEST_ID__ = "${testId}";
+                window.__API_BASE__ = "${req.protocol}://${req.get('host')}";
+            </script>
+            <script src="/api/automation-engine.js"></script>
+        `;
+        
+        // 2. Rewrite relative URLs and inject script
+        html = html.replace('<head>', `<head><base href="${baseUrl}/">${scriptInjection}`);
+        
+        res.send(html);
+    } catch (error) {
+        res.status(500).send(`Proxy Error: ${error.message}`);
+    }
+});
+
+app.get('/api/automation-engine.js', (req, res) => {
+    const script = `
+        (async function() {
+            console.log("🤖 Automation Robot Active for Test #" + window.__TEST_ID__);
+            
+            async function executeSteps() {
+                const testId = window.__TEST_ID__;
+                const apiBase = window.__API_BASE__;
+                
+                // Fetch steps from backend
+                const res = await fetch(apiBase + "/api/tests/" + testId + "/steps-data");
+                const steps = await res.json();
+                
+                console.log("🚀 Loaded " + steps.length + " steps. Starting native execution...");
+
+                for (let step of steps) {
+                    const payload = JSON.parse(step.payload);
+                    const label = payload.label || step.type;
+                    console.log("⚡ Executing: " + label);
+                    
+                    try {
+                        if (step.type === 'INPUT') {
+                            const el = document.querySelector(payload.selector) || 
+                                     ([...document.querySelectorAll('input,textarea')].find(e => e.labels?.[0]?.innerText.includes(payload.label)));
+                            if (el) {
+                                el.value = payload.value;
+                                el.dispatchEvent(new Event('input', { bubbles: true }));
+                                el.dispatchEvent(new Event('change', { bubbles: true }));
+                            }
+                        } else if (step.type === 'CLICK') {
+                            const el = document.querySelector(payload.selector) || 
+                                     ([...document.querySelectorAll('button,a,input[type="submit"]')].find(e => e.innerText.includes(payload.label) || e.value?.includes(payload.label)));
+                            if (el) el.click();
+                        }
+                        
+                        // Small delay for visual feedback
+                        await new Promise(r => setTimeout(r, 800));
+                    } catch (e) {
+                        console.error("❌ Step Failed: " + label, e);
+                    }
+                }
+                
+                console.log("🏁 Automation Finished!");
+            }
+
+            // Start after page load
+            if (document.readyState === 'complete') executeSteps();
+            else window.addEventListener('load', executeSteps);
+        })();
+    `;
+    res.set('Content-Type', 'application/javascript');
+    res.send(script);
+});
+
+// Helper for proxy to get steps directly
+app.get('/api/tests/:id/steps-data', async (req, res) => {
+    const stepsRes = await getPool().query('SELECT * FROM test_steps WHERE "testCaseId" = $1 ORDER BY "stepOrder" ASC', [req.params.id]);
+    res.json(stepsRes.rows);
 });
