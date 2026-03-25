@@ -18,7 +18,8 @@ function getExecutionStatus(testCaseId) {
     if (!exec) return null;
     return {
         ...exec,
-        snapshots: (exec.snapshots || []).slice(-1)
+        snapshots: (exec.snapshots || []).slice(-1),
+        liveView: exec.liveView
     };
 }
 
@@ -378,11 +379,39 @@ async function runUiTest(testCaseId) {
             pushLogs(`❌ Timeout: Could not find "${labelText}". Found: [${pageContext}]`);
             throw new Error(`Timeout waiting for label/input "${labelText}" at index ${index} within ${UI_TIMEOUT/1000}s`);
         };
+
+        // --- NEW: High-Frequency Live Visual Feed ---
+        let liveFeedTimer = null;
+        const startLiveFeed = () => {
+            const isProduction = process.env.NODE_ENV === 'production' || process.env.RENDER === 'true';
+            if (!isProduction) return; // Keep local headful clean
+
+            liveFeedTimer = setInterval(async () => {
+                if (!page || page.isClosed()) return;
+                try {
+                    const base64 = await page.screenshot({
+                        type: 'jpeg',
+                        quality: 20, // Low quality for speed
+                        encoding: 'base64',
+                        clip: { x: 0, y: 0, width: 1280, height: 720 }
+                    });
+                    const current = activeExecutions.get(String(testCaseId)) || {};
+                    activeExecutions.set(String(testCaseId), { ...current, liveView: base64 });
+                } catch (e) {
+                    // Silently fail to avoid polluting logs
+                }
+            }, 400); // 400ms interval for smooth-enough "video"
+        };
+        const stopLiveFeed = () => {
+            if (liveFeedTimer) clearInterval(liveFeedTimer);
+        };
+
         const capture = async (stepOrder, label) => {
-            // Screenshots disabled per user request to maximize speed and clarity
+            // Static snapshots disabled to favor high-frequency live feed
             return;
         };
 
+        startLiveFeed();
         for (const step of steps) {
             // Stability delay
             await new Promise(r => setTimeout(r, 1000));
@@ -629,6 +658,7 @@ async function runUiTest(testCaseId) {
             try { await waitForNetworkIdle(5000); } catch (_) {}
             await new Promise(r => setTimeout(r, 500));
         }
+        stopLiveFeed();
         try { if (browser) await browser.close(); } catch (_) {}
     }
 

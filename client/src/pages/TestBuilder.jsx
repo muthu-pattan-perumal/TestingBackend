@@ -91,8 +91,8 @@ const TestBuilder = () => {
         let cancelled = false;
         let consecutiveErrors = 0;
         const MAX_ERRORS = 5;       // Stop polling after 5 back-to-back failures
-        const BASE_INTERVAL = 1000; // 1 s base for high-speed polling
-        const MAX_INTERVAL = 10000; // cap at 10 s
+        const BASE_INTERVAL = 300; // 300ms for near-real-time live stream
+        const MAX_INTERVAL = 5000; // cap at 5 s
 
         const poll = async () => {
             if (cancelled) return;
@@ -114,12 +114,13 @@ const TestBuilder = () => {
                             setRunning(false);
                             setResult(data);
                             return; // Stop polling
-                        } else if (data.logs !== undefined || data.snapshots !== undefined) {
-                            // Only update if we have actual logs or snapshots
+                        } else if (data.logs !== undefined || data.snapshots !== undefined || data.liveView !== undefined) {
+                            // Only update if we have actual logs, snapshots or liveView
                             setResult(prev => ({
                                 ...prev,
                                 logs: data.logs ?? prev?.logs ?? '',
                                 snapshots: data.snapshots ?? prev?.snapshots ?? [],
+                                liveView: data.liveView ?? prev?.liveView,
                                 isLive: true
                             }));
                         }
@@ -420,10 +421,16 @@ const TestBuilder = () => {
                             <div style={{ flex: 1, display: 'flex', position: 'relative', overflow: 'hidden' }}>
                                 {/* Left Side: Live Browser Snapshot */}
                                 <div style={{ flex: 1, background: '#000', display: 'flex', alignItems: 'center', justifyContent: 'center', borderRight: '1px solid var(--border)' }}>
-                                    {result?.snapshots && result.snapshots.length > 0 ? (
+                                    {result?.liveView ? (
+                                        <img 
+                                            src={`data:image/jpeg;base64,${result.liveView}`} 
+                                            alt="Live Browser Feed" 
+                                            style={{ width: '100%', height: '100%', objectFit: 'contain' }} 
+                                        />
+                                    ) : result?.snapshots && result.snapshots.length > 0 ? (
                                         <img 
                                             src={`${API_BASE_URL}/screenshots/${result.snapshots[result.snapshots.length - 1].fileName}`} 
-                                            alt="Live View" 
+                                            alt="Last Snapshot" 
                                             style={{ width: '100%', height: '100%', objectFit: 'contain' }}
                                         />
                                     ) : (
