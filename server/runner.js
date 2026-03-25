@@ -151,7 +151,7 @@ async function runUiTest(testCaseId) {
         ].filter(p => !!p);
 
         const isProduction = process.env.NODE_ENV === 'production' || process.env.RENDER === 'true';
-        browser = await puppeteer.launch({
+        let launchOptions = {
             headless: isProduction ? 'new' : false, // Headful locally for visual feedback
             args: [
                 '--no-sandbox',
@@ -172,7 +172,8 @@ async function runUiTest(testCaseId) {
                 '--safebrowsing-disable-auto-update',
                 '--window-size=1280,720',
                 '--js-flags=--max-old-space-size=256' // Cap JS heap to 256MB
-            ]
+            ],
+            cacheDirectory: path.join(__dirname, '.cache', 'puppeteer')
         };
         // NOTE: --single-process is intentionally EXCLUDED — it causes Chrome to crash on Linux
 
