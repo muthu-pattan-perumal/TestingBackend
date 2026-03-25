@@ -250,6 +250,10 @@ app.get('/api/proxy', async (req, res) => {
         // 2. Rewrite relative URLs and inject script
         html = html.replace('<head>', `<head><base href="${baseUrl}/">${scriptInjection}`);
         
+        // 3. Strip CORS restrictions so the target assets load successfully
+        html = html.replace(/crossorigin(?:="[^"]*")?/gi, '');
+        html = html.replace(/integrity(?:="[^"]*")?/gi, '');
+        
         res.send(html);
     } catch (error) {
         res.status(500).send(`Proxy Error: ${error.message}`);
