@@ -14,9 +14,8 @@ if (!fs.existsSync('./screenshots')) {
 }
 
 function getExecutionStatus(testCaseId) {
-    const exec = activeExecutions.get(testCaseId);
+    const exec = activeExecutions.get(String(testCaseId));
     if (!exec) return null;
-    // Only return the latest snapshot and logs to keep the response size small for Render's stability
     return {
         ...exec,
         snapshots: (exec.snapshots || []).slice(-1)
@@ -30,8 +29,8 @@ async function runApiTest(testCaseId) {
     let logs = [];
     const pushLogs = (msg) => {
         logs.push(msg);
-        const current = activeExecutions.get(testCaseId) || {};
-        activeExecutions.set(testCaseId, { ...current, logs: logs.join('\n') });
+        const current = activeExecutions.get(String(testCaseId)) || {};
+        activeExecutions.set(String(testCaseId), { ...current, logs: logs.join('\n') });
     };
     let status = 'Passed';
     let lastResponse = null;
@@ -105,12 +104,12 @@ async function runApiTest(testCaseId) {
         VALUES ($1, $2, $3, $4, $5)
     `, [testCaseId, status, JSON.stringify(lastResponse), logs.join('\n'), executionTime]);
 
-    activeExecutions.set(testCaseId, { ...result, finished: true });
+    activeExecutions.set(String(testCaseId), { ...result, finished: true });
     return result;
 }
 
 async function runUiTest(testCaseId) {
-    activeExecutions.set(testCaseId, { logs: '', snapshots: [] });
+    activeExecutions.set(String(testCaseId), { logs: '', snapshots: [] });
     const stepsRes = await getPool().query('SELECT * FROM test_steps WHERE "testCaseId" = $1 ORDER BY "stepOrder" ASC', [testCaseId]);
     const steps = stepsRes.rows;
     const startTime = Date.now();
@@ -327,8 +326,8 @@ async function runUiTest(testCaseId) {
                 stepScreenshots.push({ stepOrder, label, fileName });
                 
                 // Update activeExecutions immediately so the UI sees the new snapshot
-                const current = activeExecutions.get(testCaseId) || {};
-                activeExecutions.set(testCaseId, { ...current, snapshots: [...stepScreenshots] });
+                const current = activeExecutions.get(String(testCaseId)) || {};
+                activeExecutions.set(String(testCaseId), { ...current, snapshots: [...stepScreenshots] });
             } catch (e) {
                 pushLogs(`⚠️ Snapshot failed: ${e.message}`);
             }
@@ -598,7 +597,7 @@ async function runUiTest(testCaseId) {
     `, [testCaseId, status, logs.join('\n'), executionTime, JSON.stringify({ networkHistory: cleanHistory, snapshots: stepScreenshots })]);
 
     const finalResult = { status, executionTime, logs: logs.join('\n'), networkHistory: cleanHistory, snapshots: stepScreenshots, finished: true };
-    activeExecutions.set(testCaseId, finalResult);
+    activeExecutions.set(String(testCaseId), finalResult);
     return finalResult;
 }
 

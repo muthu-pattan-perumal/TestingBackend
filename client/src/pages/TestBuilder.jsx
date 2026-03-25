@@ -113,11 +113,12 @@ const TestBuilder = () => {
                             setRunning(false);
                             setResult(data);
                             return; // Stop polling
-                        } else {
+                        } else if (data.logs !== undefined || data.snapshots !== undefined) {
+                            // Only update if we have actual logs or snapshots
                             setResult(prev => ({
                                 ...prev,
-                                logs: data.logs,
-                                snapshots: data.snapshots,
+                                logs: data.logs ?? prev?.logs ?? '',
+                                snapshots: data.snapshots ?? prev?.snapshots ?? [],
                                 isLive: true
                             }));
                         }
