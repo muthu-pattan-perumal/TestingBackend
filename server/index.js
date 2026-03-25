@@ -17,6 +17,15 @@ app.use(cors(corsOptions));
 // Handle preflight requests for ALL routes explicitly
 app.options('/{*any}', cors(corsOptions)); // Express 5 wildcard syntax
 
+// Safety-net: stamp CORS headers on EVERY response (catches cases where
+// Render's proxy or an unhandled error bypasses the cors() middleware)
+app.use((req, res, next) => {
+    res.setHeader('Access-Control-Allow-Origin', '*');
+    res.setHeader('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, PATCH, OPTIONS');
+    res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization, Origin, Accept, X-Requested-With');
+    next();
+});
+
 app.use(express.json());
 app.use('/screenshots', express.static('screenshots'));
 
@@ -145,7 +154,9 @@ app.post('/api/tests/:id/run', async (req, res) => {
 
 app.get('/api/tests/:id/run-status', (req, res) => {
     const status = getExecutionStatus(req.params.id);
-    if (!status) return res.status(102).json({ waiting: true }); // Still waiting or not started
+    // Use 200 always — HTTP 102 is non-standard and causes Render's proxy to
+    // return a 520 error with no CORS headers, breaking the frontend poll.
+    if (!status) return res.status(200).json({ waiting: true });
     res.json(status);
 });
 
