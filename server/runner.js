@@ -272,75 +272,90 @@ async function runUiTest(testCaseId) {
             const startTime = Date.now();
             while (Date.now() - startTime < UI_TIMEOUT) {
                 const elHandle = await page.evaluateHandle((text, i) => {
-                    const findInLabel = (l) => {
-                        if (l.htmlFor) return document.getElementById(l.htmlFor);
-                        const childInput = l.querySelector('input, select, textarea, button');
-                        if (childInput) return childInput;
-                        
-                        // If no direct child, look for siblings or nearby inputs in the same container
-                        const parent = l.parentElement;
-                        if (parent) {
-                            const siblingInput = parent.querySelector('input, select, textarea, button');
-                            if (siblingInput) return siblingInput;
-                        }
-                        return null;
-                    };
-
                     const textLower = text.toLowerCase().trim();
-                    const allElements = Array.from(document.querySelectorAll('label, span, div, p, strong, b'));
-                    
-                    // 1. Find potential labels by text (Fuzzy Match)
-                    const potentialLabels = allElements.filter(el => {
-                        const val = (el.innerText || '').toLowerCase().trim();
-                        return val === textLower || val.includes(textLower);
-                    });
-                    
-                    let matches = [];
-                    potentialLabels.forEach(label => {
-                        // Check if it's a real label with association
-                        if (label.tagName === 'LABEL') {
-                            const el = findInLabel(label);
-                            if (el) matches.push(el);
-                        }
-                        
-                        // If it's just text near an input, look for the next input in the DOM
-                        let next = label.nextElementSibling;
-                        while (next && matches.length < 10) {
-                            if (['INPUT', 'SELECT', 'TEXTAREA', 'BUTTON', 'A'].includes(next.tagName)) {
-                                matches.push(next);
-                                break;
-                            }
-                            const nested = next.querySelector('input, select, textarea, button');
-                            if (nested) {
-                                matches.push(nested);
-                                break;
-                            }
-                            next = next.nextElementSibling;
-                        }
+                    const allInputs = Array.from(document.querySelectorAll('input, button, select, textarea, a, [role="button"]'));
+                    let candidates = [];
 
-                        // Also check parent's other children (common in wrapper divs)
-                        if (label.parentElement) {
-                            const inputInParent = label.parentElement.querySelector('input, select, textarea, button');
-                            if (inputInParent) matches.push(inputInParent);
+                    // --- PRIORITY 1: Explicit Links & Attributes ---
+                    // 1a. Labels with for/id or child inputs
+                    const labels = Array.from(document.querySelectorAll('label'));
+                    labels.forEach(l => {
+                        const lText = (l.innerText || '').toLowerCase().trim();
+                        if (lText === textLower || lText.includes(textLower)) {
+                            if (l.htmlFor) {
+                                const el = document.getElementById(l.htmlFor);
+                                if (el) candidates.push({ el, priority: 1, type: 'label-for' });
+                            }
+                            const child = l.querySelector('input, select, textarea, button');
+                            if (child) candidates.push({ el: child, priority: 1, type: 'label-child' });
                         }
                     });
 
-                    // 2. Also check placeholders, names, and aria-labels directly
-                    const inputs = Array.from(document.querySelectorAll('input, button, select, textarea, a, [role="button"]'));
-                    inputs.forEach(input => {
-                        if ((input.getAttribute('aria-label') || '').toLowerCase().includes(textLower) ||
-                            (input.placeholder || '').toLowerCase().includes(textLower) ||
-                            (input.name || '').toLowerCase().includes(textLower) ||
-                            (input.id || '').toLowerCase().includes(textLower)) {
-                            matches.push(input);
+                    // 1b. Direct attribute matches (Placeholder, Name, Aria)
+                    allInputs.forEach(input => {
+                        const p = (input.placeholder || '').toLowerCase().trim();
+                        const a = (input.getAttribute('aria-label') || '').toLowerCase().trim();
+                        const n = (input.name || '').toLowerCase().trim();
+                        if (p === textLower || a === textLower || n === textLower) {
+                            candidates.push({ el: input, priority: 2, type: 'direct-attribute' });
+                        }
+                    });
+
+                    // --- PRIORITY 2: Visual/Structural Neighbors ---
+                    // 2a. Forward Sibling (Label follows by Input)
+                    labels.forEach(l => {
+                        const lText = (l.innerText || '').toLowerCase().trim();
+                        if (lText === textLower || lText.includes(textLower)) {
+                            let next = l.nextElementSibling;
+                            // Check next 2 siblings or their children
+                            for (let j = 0; j < 2 && next; j++) {
+                                if (['INPUT', 'SELECT', 'TEXTAREA', 'BUTTON'].includes(next.tagName)) {
+                                    candidates.push({ el: next, priority: 3, type: 'sibling' });
+                                }
+                                const nested = next.querySelector('input, select, textarea, button');
+                                if (nested) candidates.push({ el: nested, priority: 3, type: 'sibling-nested' });
+                                next = next.nextElementSibling;
+                            }
+                        }
+                    });
+
+                    // 2b. Same immediate parent
+                    labels.forEach(l => {
+                        const lText = (l.innerText || '').toLowerCase().trim();
+                        if ((lText === textLower || lText.includes(textLower)) && l.parentElement) {
+                            const inParent = l.parentElement.querySelector('input, select, textarea, button');
+                            if (inParent) candidates.push({ el: inParent, priority: 4, type: 'container' });
+                        }
+                    });
+
+                    // 2c. Fuzzy Attribute matches
+                    allInputs.forEach(input => {
+                        if ((input.placeholder || '').toLowerCase().includes(textLower) ||
+                            (input.getAttribute('aria-label') || '').toLowerCase().includes(textLower) ||
+                            (input.name || '').toLowerCase().includes(textLower)) {
+                            candidates.push({ el: input, priority: 5, type: 'fuzzy-attribute' });
                         }
                     });
                     
-                    const uniqueVisible = [...new Set(matches)].filter(el => {
-                        const rect = el.getBoundingClientRect();
-                        return rect.width > 0 && rect.height > 0;
-                    });
-                    return uniqueVisible[i - 1] || null;
+                    // Filter for visibility and unique results, sorted by priority
+                    const visibleCandidates = candidates
+                        .filter(c => {
+                            const rect = c.el.getBoundingClientRect();
+                            return rect.width > 0 && rect.height > 0;
+                        })
+                        .sort((a, b) => a.priority - b.priority);
+
+                    // De-duplicate while preserving priority
+                    const seen = new Set();
+                    const unique = [];
+                    for (const c of visibleCandidates) {
+                        if (!seen.has(c.el)) {
+                            seen.add(c.el);
+                            unique.push(c.el);
+                        }
+                    }
+
+                    return unique[i - 1] || null;
                 }, labelText, index);
 
                 const el = elHandle.asElement();
@@ -352,12 +367,12 @@ async function runUiTest(testCaseId) {
             // If we reach here, we timed out
             const pageContext = await page.evaluate(() => {
                 const items = Array.from(document.querySelectorAll('label, input, button, a'))
-                    .map(el => el.innerText?.trim() || el.placeholder?.trim() || el.getAttribute('aria-label'))
+                    .map(el => (el.innerText || el.placeholder || el.name || '').trim())
                     .filter(t => !!t && t.length < 50)
                     .slice(0, 15);
                 return items.join(', ');
             });
-            pushLogs(`❌ Timeout: Could not find "${labelText}". Found on page: [${pageContext}]...`);
+            pushLogs(`❌ Timeout: Could not find "${labelText}". Found: [${pageContext}]`);
             throw new Error(`Timeout waiting for label/input "${labelText}" at index ${index} within ${UI_TIMEOUT/1000}s`);
         };
         const capture = async (stepOrder, label) => {
