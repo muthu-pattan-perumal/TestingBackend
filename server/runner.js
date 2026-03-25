@@ -28,13 +28,18 @@ async function runApiTest(testCaseId) {
     const steps = stepsRes.rows;
     const startTime = Date.now();
     let logs = [];
+    const pushLogs = (msg) => {
+        logs.push(msg);
+        const current = activeExecutions.get(testCaseId) || {};
+        activeExecutions.set(testCaseId, { ...current, logs: logs.join('\n') });
+    };
     let status = 'Passed';
     let lastResponse = null;
 
     try {
         for (const step of steps) {
             const payload = JSON.parse(step.payload);
-            logs.push(`Executing Step ${step.stepOrder}: ${step.type}`);
+            pushLogs(`Executing Step ${step.stepOrder}: ${step.type}`);
 
             if (['GET', 'POST', 'PUT', 'DELETE'].includes(step.type)) {
                 let headers = payload.headers || {};
@@ -42,7 +47,7 @@ async function runApiTest(testCaseId) {
                     try {
                         headers = { ...headers, ...JSON.parse(payload.headersText) };
                     } catch (e) {
-                        logs.push(`Warning: Invalid headers JSON: ${e.message}`);
+                        pushLogs(`Warning: Invalid headers JSON: ${e.message}`);
                     }
                 }
 
@@ -59,7 +64,7 @@ async function runApiTest(testCaseId) {
                 try {
                     data = await response.json();
                 } catch (e) {
-                    logs.push(`Note: Response body is not JSON`);
+                    pushLogs(`Note: Response body is not JSON`);
                 }
 
                 lastResponse = {
@@ -68,7 +73,7 @@ async function runApiTest(testCaseId) {
                     time: Date.now() - startTime
                 };
                 
-                logs.push(`Response Status: ${response.status} (${response.statusText})`);
+                pushLogs(`Response Status: ${response.status} (${response.statusText})`);
 
                 const expectedStatus = payload.expectedStatus || 200;
                 if (response.status !== expectedStatus) {
@@ -79,18 +84,18 @@ async function runApiTest(testCaseId) {
                 if (lastResponse.status !== expectedStatus) {
                     throw new Error(`Status validation failed: Expected ${expectedStatus}, but got ${lastResponse.status}`);
                 }
-                logs.push(`Status validation passed: ${expectedStatus}`);
+                pushLogs(`Status validation passed: ${expectedStatus}`);
             } else if (step.type === 'VALIDATE_JSON') {
                 const { field, expectedValue } = payload;
                 if (lastResponse.data[field] !== expectedValue) {
                     throw new Error(`JSON validation failed: Expected "${field}" to be "${expectedValue}", but got "${lastResponse.data[field]}"`);
                 }
-                logs.push(`JSON validation passed: ${field} = ${expectedValue}`);
+                pushLogs(`JSON validation passed: ${field} = ${expectedValue}`);
             }
         }
     } catch (error) {
         status = 'Failed';
-        logs.push(`❌ FATAL ERROR: ${error.message}`);
+        pushLogs(`❌ FATAL ERROR: ${error.message}`);
     }
 
     const executionTime = Date.now() - startTime;
@@ -111,6 +116,14 @@ async function runUiTest(testCaseId) {
     const startTime = Date.now();
     let logs = [];
     let status = 'Passed';
+
+    // Helper to push logs live to the polling Map
+    const pushLogs = (msg) => {
+        logs.push(msg);
+        const current = activeExecutions.get(testCaseId) || {};
+        activeExecutions.set(testCaseId, { ...current, logs: logs.join('\n') });
+    };
+
     let browser = null;
     let page = null;
     const networkHistory = [];
@@ -168,22 +181,25 @@ async function runUiTest(testCaseId) {
         for (const p of possiblePaths) {
             if (fs.existsSync(p)) {
                 launchOptions.executablePath = p;
-                logs.push(`✅ Found browser at: ${p}`);
+                pushLogs(`✅ Found browser at: ${p}`);
                 foundPath = true;
                 break;
             }
         }
 
         if (!foundPath) {
-            logs.push(`⚠️ No pre-installed browser found in standard paths. Attempting default bundled launch...`);
+            pushLogs(`⚠️ No pre-installed browser found. Using default bundled launch...`);
+        } else {
+            pushLogs(`✅ Browser binary verified at: ${launchOptions.executablePath}`);
         }
 
         try {
+            pushLogs(`🔄 Attempting to launch Chrome (Cloud-safe mode)...`);
             browser = await puppeteer.launch(launchOptions);
         } catch (err) {
-            logs.push(`❌ Primary launch failed: ${err.message}`);
+            pushLogs(`❌ Primary launch failed: ${err.message}`);
             if (launchOptions.executablePath) {
-                logs.push(`🔄 Retrying with default bundled Chromium (ignoring path)...`);
+                pushLogs(`🔄 Retrying with fallback bundled Chromium...`);
                 delete launchOptions.executablePath;
                 browser = await puppeteer.launch(launchOptions);
             } else {
@@ -191,8 +207,9 @@ async function runUiTest(testCaseId) {
             }
         }
         
-        logs.push(`🚀 Browser launched successfully!`);
+        pushLogs(`🚀 Chrome launched successfully!`);
         page = await browser.newPage();
+        pushLogs(`📄 New page created. Setting up interception...`);
         await page.setViewport({ width: 1280, height: 720 });
         await page.setRequestInterception(true);
 
@@ -297,22 +314,23 @@ async function runUiTest(testCaseId) {
         };
         const capture = async (stepOrder, label) => {
             if (!page) return;
-            const isCloud = process.env.NODE_ENV === 'production' || process.env.RENDER === 'true';
-            if (isCloud) {
-                // Skip screenshots on cloud — saves RAM/disk, prevents server OOM crashes
-                stepScreenshots.push({ stepOrder, label, fileName: null });
-                const exec = activeExecutions.get(testCaseId);
-                if (exec) exec.snapshots = [...stepScreenshots];
-                return;
-            }
             try {
                 const fileName = `step_${testCaseId}_${stepOrder}_${Date.now()}.png`;
-                await page.screenshot({ path: `./screenshots/${fileName}` });
+                const isCloud = process.env.NODE_ENV === 'production' || process.env.RENDER === 'true';
+                
+                // Optimized cloud screenshot: use JPEG 50% quality to save RAM and bytes
+                const screenshotOptions = isCloud 
+                    ? { path: `./screenshots/${fileName}`, type: 'jpeg', quality: 50 }
+                    : { path: `./screenshots/${fileName}` };
+
+                await page.screenshot(screenshotOptions);
                 stepScreenshots.push({ stepOrder, label, fileName });
-                const exec = activeExecutions.get(testCaseId);
-                if (exec) exec.snapshots = [...stepScreenshots];
+                
+                // Update activeExecutions immediately so the UI sees the new snapshot
+                const current = activeExecutions.get(testCaseId) || {};
+                activeExecutions.set(testCaseId, { ...current, snapshots: [...stepScreenshots] });
             } catch (e) {
-                logs.push(`⚠️ Screenshot failed: ${e.message}`);
+                pushLogs(`⚠️ Snapshot failed: ${e.message}`);
             }
         };
 
@@ -323,16 +341,14 @@ async function runUiTest(testCaseId) {
             const label = payload.label || step.type;
             const strategy = payload.strategy || 'css';
             const mIndex = payload.matchIndex || 1;
-            logs.push(`Step ${step.stepOrder}: ${label} (Index: ${mIndex})`);
-            const exec = activeExecutions.get(testCaseId);
-            if (exec) exec.logs = logs.join('\n');
+            pushLogs(`Step ${step.stepOrder}: ${label} (Index: ${mIndex})`);
 
             if (step.type === 'OPEN_URL') {
                 const response = await page.goto(payload.url, { waitUntil: 'networkidle2', timeout: 30000 });
                 if (response && !response.ok()) {
                     throw new Error(`Failed to load page: ${payload.url} (Status: ${response.status()})`);
                 }
-                logs.push(`Page loaded: ${payload.url}`);
+                pushLogs(`Page loaded: ${payload.url}`);
                 await capture(step.stepOrder, label);
             } else if (['GET', 'POST', 'PUT', 'DELETE'].includes(step.type)) {
                 let headers = payload.headers || {};
@@ -340,13 +356,13 @@ async function runUiTest(testCaseId) {
                     try { headers = { ...headers, ...JSON.parse(payload.headersText) }; } catch (e) {}
                 }
                 const res = await fetch(payload.url, { method: step.type, headers, body: payload.body ? JSON.stringify(payload.body) : undefined });
-                logs.push(`API ${step.type} called: ${payload.url} (Status: ${res.status})`);
+                pushLogs(`API ${step.type} called: ${payload.url} (Status: ${res.status})`);
                 if (payload.expectedStatus && res.status !== payload.expectedStatus) {
                     throw new Error(`API Step Failed: Expected ${payload.expectedStatus}, got ${res.status}`);
                 }
             } else if (step.type === 'INTERCEPT_API') {
                 const pattern = payload.urlPattern.toLowerCase();
-                logs.push(`Searching history for background API call matching: "${payload.urlPattern}" (Case-Insensitive)`);
+                pushLogs(`Searching history for background API call matching: "${payload.urlPattern}" (Case-Insensitive)`);
                 
                 let response = null;
                 const checkHistory = () => {
@@ -363,12 +379,12 @@ async function runUiTest(testCaseId) {
                 // 1. Search history first
                 response = checkHistory();
                 if (response) {
-                    logs.push(`[History] Found matching call: ${response.url()}`);
+                    pushLogs(`[History] Found matching call: ${response.url()}`);
                 }
 
                 // 2. If not found, wait live
                 if (!response) {
-                    logs.push(`Not found in history. Waiting live for: "${payload.urlPattern}"...`);
+                    pushLogs(`Not found in history. Waiting live for: "${payload.urlPattern}"...`);
                     try {
                         response = await page.waitForResponse(
                             res => {
@@ -380,13 +396,13 @@ async function runUiTest(testCaseId) {
                         );
                     } catch (e) {
                         // On timeout, log the network snapshot to help the user
-                        logs.push(`❌ INTERCEPTION TIMEOUT (60s): Could not find "${payload.urlPattern}"`);
-                        logs.push(`--- NETWORK SNAPSHOT (Last 15 calls) ---`);
+                        pushLogs(`❌ INTERCEPTION TIMEOUT (60s): Could not find "${payload.urlPattern}"`);
+                        pushLogs(`--- NETWORK SNAPSHOT (Last 15 calls) ---`);
                         const snapshot = networkHistory.slice(-15).reverse();
                         snapshot.forEach(item => {
-                            logs.push(`[${item.method}] ${item.url} (Status: ${item.status})`);
+                            pushLogs(`[${item.method}] ${item.url} (Status: ${item.status})`);
                         });
-                        logs.push(`------------------------------------------`);
+                        pushLogs(`------------------------------------------`);
                         throw new Error(`Interception Timed Out. See log above for seen URLs.`);
                     }
                 }
@@ -394,7 +410,7 @@ async function runUiTest(testCaseId) {
                 const method = response.request().method();
                 let responseBody = '';
                 const status = response.status();
-                logs.push(`Intercepted ${method} Request: ${response.url()} (Status: ${status})`);
+                pushLogs(`Intercepted ${method} Request: ${response.url()} (Status: ${status})`);
 
                 if (status === 204 || status === 304) {
                     responseBody = '[No Content]';
@@ -412,7 +428,7 @@ async function runUiTest(testCaseId) {
                     }
                 }
 
-                logs.push(`Response Data:\n${responseBody}`);
+                pushLogs(`Response Data:\n${responseBody}`);
 
                 if (payload.expectedStatus && response.status() !== payload.expectedStatus) {
                     throw new Error(`Intercepted API Step Failed: Expected ${payload.expectedStatus}, got ${response.status()}`);
@@ -424,7 +440,7 @@ async function runUiTest(testCaseId) {
                     if (el) {
                         await el.scrollIntoView();
                         await el.click();
-                        logs.push(`Clicked element ${mIndex} with label: "${payload.selector}"`);
+                        pushLogs(`Clicked element ${mIndex} with label: "${payload.selector}"`);
                     } else {
                         throw new Error(`Could not find or click element ${mIndex} with label "${payload.selector}"`);
                     }
@@ -447,11 +463,11 @@ async function runUiTest(testCaseId) {
                             return similar.slice(0, 10);
                         }, payload.selector);
 
-                        logs.push(`❌ Selector Error: Could not find "${payload.selector}" within ${UI_TIMEOUT/1000}s.`);
+                        pushLogs(`❌ Selector Error: Could not find "${payload.selector}" within ${UI_TIMEOUT/1000}s.`);
                         if (suggestions.length > 0) {
-                            logs.push(`💡 Did you mean one of these? : ${suggestions.join(', ')}`);
+                            pushLogs(`💡 Did you mean one of these? : ${suggestions.join(', ')}`);
                         } else {
-                            logs.push(`💡 Tip: Make sure the element is not inside an iframe and the class name is correct.`);
+                            pushLogs(`💡 Tip: Make sure the element is not inside an iframe and the class name is correct.`);
                         }
                         throw new Error(`Waiting for selector "${payload.selector}" failed. Check for typos.`);
                     }
@@ -459,7 +475,7 @@ async function runUiTest(testCaseId) {
                     if (elements[mIndex - 1]) {
                         await elements[mIndex - 1].scrollIntoView();
                         await elements[mIndex - 1].click();
-                        logs.push(`Clicked element ${mIndex} matching selector: ${payload.selector}`);
+                        pushLogs(`Clicked element ${mIndex} matching selector: ${payload.selector}`);
                     } else {
                         throw new Error(`Could not find element at index ${mIndex} for selector: ${payload.selector}`);
                     }
@@ -477,7 +493,7 @@ async function runUiTest(testCaseId) {
                         await page.keyboard.up('Control');
                         await page.keyboard.press('Backspace');
                         await page.keyboard.type(payload.value);
-                        logs.push(`Entered text into element ${mIndex} with label "${payload.selector}": ${payload.value}`);
+                        pushLogs(`Entered text into element ${mIndex} with label "${payload.selector}": ${payload.value}`);
                     } else {
                         throw new Error(`Could not find input field ${mIndex} with label "${payload.selector}"`);
                     }
@@ -497,9 +513,9 @@ async function runUiTest(testCaseId) {
                             );
                             return similar.slice(0, 10);
                         }, payload.selector);
-                        logs.push(`❌ Input Error: Could not find "${payload.selector}" within ${UI_TIMEOUT/1000}s.`);
+                        pushLogs(`❌ Input Error: Could not find "${payload.selector}" within ${UI_TIMEOUT/1000}s.`);
                         if (suggestions.length > 0) {
-                            logs.push(`💡 Did you mean one of these? : ${suggestions.join(', ')}`);
+                            pushLogs(`💡 Did you mean one of these? : ${suggestions.join(', ')}`);
                         }
                         throw new Error(`Waiting for selector "${payload.selector}" failed.`);
                     }
@@ -509,7 +525,7 @@ async function runUiTest(testCaseId) {
                         await elements[mIndex - 1].click({ clickCount: 3 }); 
                         await page.keyboard.press('Backspace');
                         await elements[mIndex - 1].type(payload.value);
-                        logs.push(`Entered text into element ${mIndex} matching selector: ${payload.selector}`);
+                        pushLogs(`Entered text into element ${mIndex} matching selector: ${payload.selector}`);
                     } else {
                         throw new Error(`Could not find element at index ${mIndex} for selector: ${payload.selector}`);
                     }
@@ -535,21 +551,21 @@ async function runUiTest(testCaseId) {
                             );
                             return similar.slice(0, 10);
                         }, payload.selector);
-                        logs.push(`❌ Wait Error: Could not find "${payload.selector}" within ${UI_TIMEOUT/1000}s.`);
+                        pushLogs(`❌ Wait Error: Could not find "${payload.selector}" within ${UI_TIMEOUT/1000}s.`);
                         if (suggestions.length > 0) {
-                            logs.push(`💡 Did you mean one of these? : ${suggestions.join(', ')}`);
+                            pushLogs(`💡 Did you mean one of these? : ${suggestions.join(', ')}`);
                         }
                         throw new Error(`Waiting for selector "${payload.selector}" failed.`);
                     }
                     const elements = await page.$$(payload.selector);
                     if (!elements[mIndex - 1]) throw new Error(`Timeout waiting for selector "${payload.selector}" at index ${mIndex}`);
                 }
-                logs.push(`Successfully waited for element ${mIndex} matching: ${payload.selector}`);
+                pushLogs(`Successfully waited for element ${mIndex} matching: ${payload.selector}`);
                 await capture(step.stepOrder, label);
             } else if (step.type === 'SCREENSHOT') {
                 const screenshotName = `screenshot_${testCaseId}_${Date.now()}.png`;
                 await page.screenshot({ path: `./screenshots/${screenshotName}` });
-                logs.push(`Screenshot saved: ${screenshotName}`);
+                pushLogs(`Screenshot saved: ${screenshotName}`);
                 stepScreenshots.push({ stepOrder: step.stepOrder, label, fileName: screenshotName });
             }
             
@@ -558,7 +574,7 @@ async function runUiTest(testCaseId) {
         }
     } catch (error) {
         status = 'Failed';
-        logs.push(`Error: ${error.message}`);
+        pushLogs(`Error: ${error.message}`);
     } finally {
         // NOTE: Do NOT delete from activeExecutions here — the polling client reads
         // it via /run-status until we overwrite it with finished:true below.
